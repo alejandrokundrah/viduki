@@ -9,6 +9,8 @@
     <meta name="apple-mobile-web-app-title" content="Viduki">
     <link rel="icon" type="image/x-icon" href="<%= htmlWebpackPlugin.options.faviconsPath %>/favicon.ico">
     <link rel="manifest" href="manifest.json" />
+    <link rel="preconnect" href="https://viduki.net" crossorigin>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://appleid.cdn-apple.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; frame-src 'self' https://viduki.net https://*.viduki.net; font-src 'self' data:; connect-src 'self' https: wss: blob:; worker-src 'self' blob:;">
     <title>Viduki - Freedom to Stream</title>
     <%= htmlWebpackPlugin.tags.headTags %>
 </head>

@@ -190,6 +190,17 @@ module.exports = (env, argv) => ({
     },
     optimization: {
         minimize: true,
+        splitChunks: {
+            chunks: 'async',
+            cacheGroups: {
+                vendor: {
+                    test: /[\\/]node_modules[\\/]/,
+                    name: 'vendors',
+                    chunks: 'async',
+                    enforce: true,
+                },
+            },
+        },
         minimizer: [
             new TerserPlugin({
                 test: /\.js$/,
@@ -224,7 +235,8 @@ module.exports = (env, argv) => ({
             new WorkboxPlugin.GenerateSW({
                 maximumFileSizeToCacheInBytes: 20000000,
                 clientsClaim: true,
-                skipWaiting: true
+                skipWaiting: true,
+                exclude: [/\.map$/],
             }),
         new CopyWebpackPlugin({
             patterns: [

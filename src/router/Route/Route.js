@@ -11,7 +11,9 @@ const Route = ({ component, focused }) => {
             <RouteFocusedProvider value={focused}>
                 <ModalsContainerProvider>
                     <div className={'route-content'}>
-                        {component}
+                        <React.Suspense fallback={null}>
+                            {component}
+                        </React.Suspense>
                     </div>
                 </ModalsContainerProvider>
             </RouteFocusedProvider>

@@ -29,6 +29,8 @@ const isIOS = !isVisionOS && (
 
 const bowser = Bowser.getParser(userAgent);
 const os = bowser.getOSName().toLowerCase();
+const platformType = bowser.getPlatformType();
+const isTV = platformType === 'tv' || /android.*\btv\b|smart[-]?tv|smarttv|hbbtv/i.test(userAgent);
 
 const name = isVisionOS ? 'visionos' : isIOS ? 'ios' : os || 'unknown';
 const isMobile = ['ios', 'android'].includes(name);
@@ -36,4 +38,5 @@ const isMobile = ['ios', 'android'].includes(name);
 export {
     name,
     isMobile,
+    isTV,
 };

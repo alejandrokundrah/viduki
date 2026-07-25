@@ -144,38 +144,43 @@ const App = () => {
     }, [profile.settings, shell.state.windowClosed]);
 
     React.useEffect(() => {
+        let timeoutId;
         const onWindowFocus = () => {
-            core.transport.dispatch({
-                action: 'Ctx',
-                args: {
-                    action: 'PullAddonsFromAPI'
-                }
-            });
-            core.transport.dispatch({
-                action: 'Ctx',
-                args: {
-                    action: 'PullUserFromAPI',
-                    args: {}
-                }
-            });
-            core.transport.dispatch({
-                action: 'Ctx',
-                args: {
-                    action: 'SyncLibraryWithAPI'
-                }
-            });
-            core.transport.dispatch({
-                action: 'Ctx',
-                args: {
-                    action: 'PullNotifications'
-                }
-            });
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                core.transport.dispatch({
+                    action: 'Ctx',
+                    args: {
+                        action: 'PullAddonsFromAPI'
+                    }
+                });
+                core.transport.dispatch({
+                    action: 'Ctx',
+                    args: {
+                        action: 'PullUserFromAPI',
+                        args: {}
+                    }
+                });
+                core.transport.dispatch({
+                    action: 'Ctx',
+                    args: {
+                        action: 'SyncLibraryWithAPI'
+                    }
+                });
+                core.transport.dispatch({
+                    action: 'Ctx',
+                    args: {
+                        action: 'PullNotifications'
+                    }
+                });
+            }, 2000);
         };
 
         onWindowFocus();
         window.addEventListener('focus', onWindowFocus);
 
         return () => {
+            clearTimeout(timeoutId);
             window.removeEventListener('focus', onWindowFocus);
         };
     }, []);

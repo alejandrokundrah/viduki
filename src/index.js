@@ -7,7 +7,8 @@ if (typeof process.env.SENTRY_DSN === 'string') {
 
 const Bowser = require('bowser');
 const browser = Bowser.parse(window.navigator?.userAgent || '');
-if (browser?.platform?.type === 'desktop') {
+const { isTV } = require('./common/Platform/device');
+if (browser?.platform?.type === 'desktop' || isTV) {
     document.querySelector('meta[name="viewport"]')?.setAttribute('content', '');
 }
 
