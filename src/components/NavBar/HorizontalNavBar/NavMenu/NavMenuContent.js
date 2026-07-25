@@ -110,6 +110,10 @@ const NavMenuContent = ({ onClick }) => {
                     <Icon className={styles['icon']} name={'magnet-link'} />
                     <div className={styles['nav-menu-option-label']}>{ t('PLAY_URL_MAGNET_LINK') }</div>
                 </Button>
+                <Button className={styles['nav-menu-option-container']} title="Live TV" href={'#/live-tv'}>
+                    <Icon className={styles['icon']} name={'tv'} />
+                    <div className={styles['nav-menu-option-label']}>Live TV</div>
+                </Button>
                 <Button className={styles['nav-menu-option-container']} title={ t('HELP_FEEDBACK') } href={'https://stremio.zendesk.com/'} target={'_blank'}>
                     <Icon className={styles['icon']} name={'help'} />
                     <div className={styles['nav-menu-option-label']}>{ t('HELP_FEEDBACK') }</div>

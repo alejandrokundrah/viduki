@@ -1,169 +1,378 @@
-// Copyright (C) 2017-2023 Smart code 203358507
+// Copyright (C) 2017-2026 Smart code 203358507
 
-@import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
-@import (reference) '~stremio/common/screen-sizes.less';
+@accent:        #7c3aed;
+@accent-light:  #a78bfa;
+@accent-glow:   rgba(124, 58, 237, 0.55);
+@accent-glow2:  rgba(167, 139, 250, 0.25);
+@bg:            #000;
+@overlay-bg:    linear-gradient(to bottom, rgba(0,0,0,0.82) 0%, transparent 100%);
+@bar-height:    4rem;
 
-:import('~stremio/components/Slider/styles.less') {
-    active-slider-within: active-slider-within;
+// ─── Keyframes ────────────────────────────────────────────────────────────────
+
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
-:import('~stremio/components/NavBar/HorizontalNavBar/styles.less') {
-    nav-bar-button-container: button-container;
-    nav-bar-title: title;
-    nav-bar-icon: icon;
+@keyframes pulseGlow {
+    0%   { box-shadow: 0 0 18px 4px @accent-glow; }
+    50%  { box-shadow: 0 0 32px 10px @accent-glow2; }
+    100% { box-shadow: 0 0 18px 4px @accent-glow; }
 }
 
-@background-color: rgba(0, 0, 0, 1);
-
-html:not(.active-slider-within) {
-    .player-container.overlayHidden {
-        cursor: none;
-
-        .nav-bar-layer, .control-bar-layer, .menu-layer, .side-drawer-button-layer {
-            opacity: 0;
-            transition: opacity 200ms;
-        }
-    }
+@keyframes badgePop {
+    0%   { transform: scale(0.6); opacity: 0; }
+    60%  { transform: scale(1.15); }
+    100% { transform: scale(1);    opacity: 1; }
 }
+
+@keyframes orbitPulse {
+    0%   { opacity: 0.45; transform: scale(1); }
+    50%  { opacity: 0.9;  transform: scale(1.35); }
+    100% { opacity: 0.45; transform: scale(1); }
+}
+
+// ─── Root container ──────────────────────────────────────────────────────────
 
 .player-container {
     position: relative;
-    z-index: 0;
     width: 100%;
     height: 100%;
-    background-color: @background-color;
+    background: @bg;
+    overflow: hidden;
+    font-family: -apple-system, 'Inter', sans-serif;
 
-    .layer {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 0;
+    // overlay layers animate as a group
+    .gradient-top,
+    .overlay-bar {
+        transition: opacity 0.4s ease, transform 0.4s ease;
+    }
 
-        &.buffering-layer, &.error-layer {
-            background: transparent;
-        }
+    // Auto-hide state
+    &.overlay-hidden {
+        cursor: none;
 
-        &.background-layer {
-            .image {
-                width: 100vw;
-                height: 100vh;
-                object-fit: cover;
-                opacity: 0.6;
-            }
-        }
-
-        &.nav-bar-layer {
-            left: var(--safe-area-inset-left);
-            right: var(--safe-area-inset-right);
-            bottom: initial;
-            background: transparent;
-            overflow: visible;
-
-            &::before {
-                position: absolute;
-                right: 0;
-                top: 0;
-                left: 0;
-                height: 8rem;
-                z-index: -1;
-                content: "";
-                background: linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0%, transparent 100%);
-                pointer-events: none;
-            }
-
-            .nav-bar-button-container {
-                &:hover {
-                    background: transparent;
-                }
-
-                .nav-bar-icon {
-                    color: var(--primary-foreground-color);
-                }
-            }
-
-            .nav-bar-title {
-                color: var(--primary-foreground-color);
-            }
-        }
-
-        &.side-drawer-button-layer {
-            position: fixed;
-            top: 50%;
-            right: -4rem;
-            left: initial;
-            transform: translateY(-50%);
-        }
-
-        &.control-bar-layer {
-            left: var(--safe-area-inset-left);
-            right: var(--safe-area-inset-right);
-            top: initial;
-            overflow: visible;
-            padding-bottom: calc(0.5rem + var(--safe-area-inset-bottom));
-
-            &::before {
-                position: absolute;
-                right: 0;
-                bottom: 0;
-                left: 0;
-                height: 10rem;
-                z-index: -1;
-                content: "";
-                background: linear-gradient(to top, rgba(0, 0, 0, 0.35) 0%, transparent 100%);
-                pointer-events: none;
-            }
-        }
-
-        &.indicator-layer {
-            top: initial;
-            left: 0;
-            right: 0;
-            bottom: 10rem;
-        }
-
-        &.menu-layer {
-            top: initial;
-            left: initial;
-            right: 4rem;
-            bottom: 7.5rem;
-            max-height: calc(100% - 13rem);
-            max-width: calc(100% - 4rem);
-            border-radius: var(--border-radius);
-            background-color: var(--modal-background-color);
-            box-shadow: 0 1.35rem 2.7rem @color-background-dark5-40,
-                0 1.1rem 0.85rem @color-background-dark5-20;
-            backdrop-filter: blur(15px);
-            overflow: auto;
-        }
-
-        &.side-drawer-layer {
-            bottom: 0;
-            right: 0;
-            left: initial;
-            bottom: initial;
+        .gradient-top,
+        .overlay-bar {
+            opacity: 0;
+            transform: translateY(-6px);
+            pointer-events: none;
         }
     }
 }
 
-@media screen and (max-width: @xsmall) {
-    .player-container {
-        .layer {
-            &.side-drawer-button-layer {
-                right: -2rem;
-            }
+// ─── Gradient vignette ───────────────────────────────────────────────────────
+
+.gradient-top {
+    position: absolute;
+    inset: 0;
+    bottom: 60%;
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%);
+}
+
+// ─── Floating overlay bar ────────────────────────────────────────────────────
+
+.overlay-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    height: @bar-height;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 1.25rem;
+    animation: fadeInDown 0.3s ease both;
+}
+
+// ─── Icon buttons (back / fullscreen) ────────────────────────────────────────
+
+.back-pill-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 1.05rem 0.45rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.09);
+    backdrop-filter: blur(14px);
+    color: rgba(255,255,255,0.90);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+
+    svg {
+        transition: transform 0.2s ease;
+    }
+
+    &:hover {
+        background: linear-gradient(135deg, rgba(147, 51, 234, 0.4) 0%, rgba(6, 182, 212, 0.3) 100%);
+        border-color: rgba(192, 132, 252, 0.5);
+        color: #fff;
+        box-shadow: 0 0 20px rgba(147, 51, 234, 0.4);
+        transform: translateY(-1px);
+
+        svg {
+            transform: translateX(-3px);
         }
+    }
+    &:active {
+        transform: scale(0.95);
     }
 }
 
-@media (orientation: portrait) and (max-width: @minimum) {
-    .player-container {
-        .layer {
-            &.menu-layer {
-                right: 2.5rem;
-                bottom: 11rem;
-            }
-        }
+.icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.10);
+    backdrop-filter: blur(10px);
+    color: rgba(255,255,255,0.80);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s, color 0.2s, transform 0.15s;
+
+    &:hover {
+        background: rgba(255,255,255,0.22);
+        color: #fff;
+        transform: scale(1.08);
     }
+    &:active {
+        transform: scale(0.94);
+    }
+}
+
+// ─── Spacer ──────────────────────────────────────────────────────────────────
+
+.bar-spacer {
+    flex: 1;
+}
+
+// ─── Right-side controls group ────────────────────────────────────────────────
+
+.right-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+// Thin divider between pills and fullscreen button
+.divider {
+    width: 1px;
+    height: 1.2rem;
+    background: rgba(255,255,255,0.18);
+    margin: 0 0.2rem;
+    border-radius: 1px;
+    flex-shrink: 0;
+}
+
+.server-pill {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 1.05rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    color: rgba(255,255,255,0.60);
+    font-size: 0.80rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+
+    &:hover:not(.server-pill-active) {
+        background: rgba(255,255,255,0.16);
+        color: #fff;
+        border-color: rgba(255,255,255,0.30);
+        transform: translateY(-1px);
+    }
+    &:active {
+        transform: scale(0.96);
+    }
+}
+
+.server-pill-active {
+    background: linear-gradient(135deg, @accent 0%, darken(@accent, 8%) 100%);
+    border-color: @accent-light;
+    color: #fff;
+    font-weight: 600;
+    animation: pulseGlow 2.8s ease-in-out infinite;
+
+    .pill-text {
+        position: relative;
+        z-index: 1;
+    }
+}
+
+.pill-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.56rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: @accent-light;
+    background: rgba(255,255,255,0.15);
+    border-radius: 4px;
+    padding: 0.1rem 0.3rem;
+    animation: badgePop 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+    flex-shrink: 0;
+}
+
+.pill-text {
+    line-height: 1;
+}
+
+// ─── Player body ─────────────────────────────────────────────────────────────
+
+.player-body {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.player-iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    display: block;
+}
+
+// ─── Iframe cover — prevents the iframe from swallowing pointer events ────────
+// When the overlay is VISIBLE   → cover is inert (pointer-events: none)
+//   → user can interact with the iframe player controls normally
+// When the overlay is HIDDEN    → cover is active (pointer-events: auto)
+//   → any mouse move / click wakes the overlay; cover disappears right after
+
+.iframe-cover {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    // Inert by default (overlay visible)
+    pointer-events: none;
+    cursor: default;
+}
+
+// Activate the cover ONLY when the overlay is hidden
+.player-container.overlay-hidden .iframe-cover {
+    pointer-events: auto;
+    cursor: default;
+}
+
+// ─── Error / state screens ────────────────────────────────────────────────────
+
+.state-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    text-align: center;
+    padding: 3rem 2rem;
+    background: radial-gradient(ellipse at center, rgba(124,58,237,0.10) 0%, @bg 65%);
+    color: #fff;
+}
+
+.state-glow {
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    background: @accent-glow2;
+    filter: blur(80px);
+    pointer-events: none;
+    animation: orbitPulse 3s ease-in-out infinite;
+}
+
+.state-icon {
+    font-size: 3rem;
+    line-height: 1;
+    opacity: 0.45;
+    position: relative;
+    z-index: 1;
+}
+
+.state-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    position: relative;
+    z-index: 1;
+}
+
+.state-msg {
+    font-size: 0.92rem;
+    color: rgba(255,255,255,0.55);
+    max-width: 400px;
+    line-height: 1.6;
+    position: relative;
+    z-index: 1;
+}
+
+.state-actions {
+    display: flex;
+    gap: 0.65rem;
+    margin-top: 0.5rem;
+    position: relative;
+    z-index: 1;
+}
+
+.btn-primary {
+    padding: 0.65rem 1.75rem;
+    border-radius: 999px;
+    border: none;
+    background: linear-gradient(135deg, @accent 0%, darken(@accent, 10%) 100%);
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 20px @accent-glow;
+
+    &:hover { transform: translateY(-1px); box-shadow: 0 6px 28px @accent-glow; }
+    &:active { transform: scale(0.97); }
+}
+
+.btn-secondary {
+    padding: 0.65rem 1.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.07);
+    backdrop-filter: blur(8px);
+    color: rgba(255,255,255,0.70);
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, transform 0.15s;
+
+    &:hover { background: rgba(255,255,255,0.14); color: #fff; transform: translateY(-1px); }
+    &:active { transform: scale(0.97); }
+}
+
+// ─── Responsive ───────────────────────────────────────────────────────────────
+
+@media screen and (max-width: 640px) {
+    .pill-badge { display: none; }
+    .server-pill { padding: 0.3rem 0.7rem; font-size: 0.75rem; }
+    .overlay-bar { padding: 0 0.75rem; }
 }

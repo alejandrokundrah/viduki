@@ -11,6 +11,7 @@ const { Button, Image, MultiselectMenu } = require('stremio/components');
 const { useCore } = require('stremio/core');
 const Stream = require('./Stream');
 const styles = require('./styles');
+const { VIDUKI_APIS, parseVidukiMedia } = require('stremio/common/viduki');
 const { usePlatform, useProfile } = require('stremio/common');
 const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 
@@ -24,6 +25,30 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
     const navigate = useNavigate();
     const streamsContainerRef = React.useRef(null);
     const [selectedAddon, setSelectedAddon] = React.useState(ALL_ADDONS_KEY);
+
+    const vidukiStreams = React.useMemo(() => {
+        const rawMediaId = props.metaId || video?.id || props.id;
+        const parsed = parseVidukiMedia({ type, id: rawMediaId, videoId: video?.id, video });
+        const mediaId = parsed.mediaId || rawMediaId;
+        const metaType = type || 'movie';
+        const vidId = video?.id || mediaId || '';
+        if (!mediaId) return [];
+        return VIDUKI_APIS.map((api) => ({
+            addonName: 'Viduki Player',
+            name: api.name,
+            description: api.desc,
+            thumbnail: null,
+            progress: null,
+            deepLinks: {
+                player: `#/watch/viduki_${api.id}/${metaType}/${mediaId}/${vidId}`
+            },
+            onClick: (e) => {
+                if (e && e.preventDefault) e.preventDefault();
+                navigate(`/watch/viduki_${api.id}/${metaType}/${mediaId}/${vidId}`);
+            }
+        }));
+    }, [type, video, props.metaId, props.id, navigate]);
+
     const onAddonSelected = React.useCallback((value) => {
         streamsContainerRef.current.scrollTo({ top: 0, left: 0, behavior: platform.name === 'ios' ? 'smooth' : 'instant' });
         setSelectedAddon(value);
@@ -77,6 +102,14 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                 :
                 [];
     }, [streamsByAddon, selectedAddon]);
+
+    const allStreams = React.useMemo(() => {
+        if (selectedAddon === ALL_ADDONS_KEY) {
+            return [...vidukiStreams, ...filteredStreams];
+        }
+        return filteredStreams;
+    }, [vidukiStreams, filteredStreams, selectedAddon]);
+
     const selectableOptions = React.useMemo(() => {
         return {
             options: [
@@ -106,8 +139,9 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                 {
                     video ?
                         <React.Fragment>
-                            <Button className={classnames(styles['button-container'], styles['back-button-container'])} tabIndex={0} onClick={backButtonOnClick}>
+                            <Button className={classnames(styles['button-container'], styles['back-button-container'])} tabIndex={0} onClick={backButtonOnClick} title={t('BACK') || 'Back'}>
                                 <Icon className={styles['icon']} name={'chevron-back'} />
+                                <span className={styles['back-label']}>Back</span>
                             </Button>
                             <div className={styles['episode-title']}>
                                 {typeof video.season === 'number' && typeof video.episode === 'number'
@@ -129,7 +163,7 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                 }
             </div>
             {
-                props.streams.length === 0 ?
+                allStreams.length === 0 ?
                     <div className={styles['message-container']}>
                         {
                             type === 'series' ?
@@ -140,75 +174,35 @@ const StreamsList = ({ className, video, type, onEpisodeSearch, ...props }) => {
                         <div className={styles['label']}>{t('ERR_NO_ADDONS_FOR_STREAMS')}</div>
                     </div>
                     :
-                    props.streams.every((streams) => streams.content.type === 'Err') ?
-                        <div className={styles['message-container']}>
-                            {
-                                type === 'series' ?
-                                    <SeasonEpisodePicker className={styles['search']} onSubmit={handleEpisodePicker} />
-                                    : null
-                            }
-                            {
-                                video?.upcoming ?
-                                    <div className={styles['label']}>{t('UPCOMING')}...</div>
-                                    : null
-                            }
-                            <Image className={styles['image']} src={require('/assets/images/empty.png')} alt={' '} />
-                            <div className={styles['label']}>{t('NO_STREAM')}</div>
-                            {
-                                showInstallAddonsButton ?
-                                    <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
-                                        <Icon className={styles['icon']} name={'addons'} />
-                                        <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
-                                    </Button>
-                                    :
-                                    null
-                            }
+                    <React.Fragment>
+                        <div className={styles['streams-container']} ref={streamsContainerRef}>
+                            {allStreams.map((stream, index) => (
+                                <Stream
+                                    key={index}
+                                    videoId={video?.id}
+                                    videoReleased={video?.released}
+                                    addonName={stream.addonName}
+                                    name={stream.name}
+                                    description={stream.description}
+                                    thumbnail={stream.thumbnail}
+                                    progress={stream.progress}
+                                    deepLinks={stream.deepLinks}
+                                    onClick={stream.onClick}
+                                />
+                            ))}
                         </div>
-                        :
-                        filteredStreams.length === 0 ?
-                            <div className={styles['streams-container']}>
-                                <Stream.Placeholder />
-                                <Stream.Placeholder />
-                            </div>
-                            :
-                            <React.Fragment>
-                                <div className={styles['streams-container']} ref={streamsContainerRef}>
-                                    {filteredStreams.map((stream, index) => (
-                                        <Stream
-                                            key={index}
-                                            videoId={video?.id}
-                                            videoReleased={video?.released}
-                                            addonName={stream.addonName}
-                                            name={stream.name}
-                                            description={stream.description}
-                                            thumbnail={stream.thumbnail}
-                                            progress={stream.progress}
-                                            deepLinks={stream.deepLinks}
-                                            onClick={stream.onClick}
-                                        />
-                                    ))}
-                                    {
-                                        showInstallAddonsButton ?
-                                            <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
-                                                <Icon className={styles['icon']} name={'addons'} />
-                                                <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
-                                            </Button>
-                                            :
-                                            null
-                                    }
+                        {
+                            countLoadingAddons > 0 ?
+                                <div className={styles['addons-loading-container']}>
+                                    <div className={styles['addons-loading']}>
+                                        {countLoadingAddons} {t('MOBILE_ADDONS_LOADING')}
+                                    </div>
+                                    <span className={styles['addons-loading-bar']}></span>
                                 </div>
-                                {
-                                    countLoadingAddons > 0 ?
-                                        <div className={styles['addons-loading-container']}>
-                                            <div className={styles['addons-loading']}>
-                                                {countLoadingAddons} {t('MOBILE_ADDONS_LOADING')}
-                                            </div>
-                                            <span className={styles['addons-loading-bar']}></span>
-                                        </div>
-                                        :
-                                        null
-                                }
-                            </React.Fragment>
+                                :
+                                null
+                        }
+                    </React.Fragment>
             }
         </div>
     );

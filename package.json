@@ -19,6 +19,9 @@
     },
     "dependencies": {
         "@babel/runtime": "7.29.2",
+        "@capacitor/android": "^8.4.2",
+        "@capacitor/cli": "^8.4.2",
+        "@capacitor/core": "^8.4.2",
         "@sentry/browser": "8.42.0",
         "@stremio/stremio-colors": "5.2.0",
         "@stremio/stremio-core-web": "0.59.0",

@@ -4,9 +4,9 @@
     "details": [
       {
         "appIDs": [
-          "9EWRZ4QP3J.com.stremio.one"
+          "9EWRZ4QP3J.com.viduki.web"
         ],
-        "appID": "9EWRZ4QP3J.com.stremio.one",
+        "appID": "9EWRZ4QP3J.com.viduki.web",
         "paths": [
           "*"
         ]
@@ -15,12 +15,12 @@
   },
   "activitycontinuation": {
     "apps": [
-      "9EWRZ4QP3J.com.stremio.one"
+      "9EWRZ4QP3J.com.viduki.web"
     ]
   },
   "webcredentials": {
     "apps": [
-      "9EWRZ4QP3J.com.stremio.one"
+      "9EWRZ4QP3J.com.viduki.web"
     ]
   }
 }

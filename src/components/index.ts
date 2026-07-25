@@ -31,6 +31,8 @@ import Toggle from './Toggle';
 import Transition from './Transition';
 import Video from './Video';
 import ActionsGroup from './ActionsGroup';
+import VidukiPlayer from './VidukiPlayer';
+
 
 export {
     AddonDetailsModal,
@@ -66,5 +68,8 @@ export {
     Toggle,
     Transition,
     Video,
-    ActionsGroup
+    ActionsGroup,
+    VidukiPlayer,
 };
+
+

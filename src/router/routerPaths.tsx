@@ -2,6 +2,7 @@
 
 import React from 'react';
 import routes from 'stremio/routes';
+import VidukiPlayer from '../components/VidukiPlayer';
 
 export default [
     {
@@ -35,6 +36,11 @@ export default [
         element: <routes.Search />,
     },
     {
+        path: '/live-tv',
+        view: 1,
+        element: <VidukiPlayer />,
+    },
+    {
         path: '/metadetails/:type?/:id?/:videoId?',
         view: 2,
         element: <routes.MetaDetails />,
@@ -55,7 +61,14 @@ export default [
         element: <routes.Settings />,
     },
     {
+        // Legacy stremio player route — now handled by Viduki Player
         path: '/player/:stream/:streamTransportUrl?/:metaTransportUrl?/:type?/:id?/:videoId?',
+        view: 4,
+        element: <routes.Player />,
+    },
+    {
+        // Direct Viduki watch route: /watch/:stream/:type/:id/:videoId?
+        path: '/watch/:stream/:type?/:id?/:videoId?',
         view: 4,
         element: <routes.Player />,
     },

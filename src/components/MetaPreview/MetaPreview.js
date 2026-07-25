@@ -14,6 +14,7 @@ const SharePrompt = require('stremio/components/SharePrompt');
 const CONSTANTS = require('stremio/common/CONSTANTS');
 const routesRegexp = require('stremio/common/routesRegexp');
 const useBinaryState = require('stremio/common/useBinaryState');
+const { parseVidukiMedia } = require('stremio/common/viduki');
 const ActionButton = require('./ActionButton');
 const MetaLinks = require('./MetaLinks');
 const MetaPreviewPlaceholder = require('./MetaPreviewPlaceholder');
@@ -26,13 +27,17 @@ const ALLOWED_LINK_REDIRECTS = [
     routesRegexp.metadetails.regexp
 ];
 
-const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo }, ref) => {
+const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, metaId, type, videoId }, ref) => {
     const { t } = useTranslation();
     const [shareModalOpen, openShareModal, closeShareModal] = useBinaryState(false);
     const linksGroups = React.useMemo(() => {
         return Array.isArray(links) ?
             links
                 .filter((link) => link && typeof link.category === 'string' && typeof link.url === 'string')
+                .filter(({ url }) => {
+                    const { hostname } = UrlUtils.parse(url);
+                    return typeof hostname === 'string' && !hostname.includes('youtube.com') && !hostname.includes('youtu.be');
+                })
                 .reduce((linksGroups, { category, name, url }) => {
                     const { protocol, path, pathname, hostname } = UrlUtils.parse(url);
                     if (category === CONSTANTS.IMDB_LINK_CATEGORY) {
@@ -89,13 +94,39 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
             :
             null;
     }, [deepLinks]);
-    const trailerHref = React.useMemo(() => {
-        if (!Array.isArray(trailerStreams) || trailerStreams.length === 0) {
-            return null;
+    const watchHref = React.useMemo(() => {
+        let itemId = metaId;
+        let itemType = type;
+        let itemVideoId = videoId;
+
+        if (!itemId && deepLinks) {
+            const ref = deepLinks.metaDetailsStreams || deepLinks.player || deepLinks.metaDetailsVideos || '';
+            const match = ref.match(/\/(movie|series|tv|channel|other)\/([^\/]+)(?:\/([^\/]+))?/);
+            if (match) {
+                itemType = itemType || match[1];
+                itemId = match[2];
+                itemVideoId = itemVideoId || match[3];
+            }
         }
 
-        return trailerStreams[0].deepLinks.player;
-    }, [trailerStreams]);
+        if (itemId) {
+            const parsed = parseVidukiMedia({ type: itemType, id: itemId, videoId: itemVideoId, video: null });
+            if (parsed.mediaId) {
+                const vidId = itemVideoId || parsed.mediaId;
+                return `#/watch/viduki_1/${itemType || parsed.mediaType || 'movie'}/${parsed.mediaId}/${vidId}`;
+            }
+        }
+
+        if (deepLinks && typeof deepLinks.player === 'string') {
+            return deepLinks.player;
+        }
+
+        if (Array.isArray(trailerStreams) && trailerStreams.length > 0 && trailerStreams[0] && trailerStreams[0].deepLinks && trailerStreams[0].deepLinks.player) {
+            return trailerStreams[0].deepLinks.player;
+        }
+
+        return null;
+    }, [metaId, type, videoId, deepLinks, trailerStreams]);
     const renderLogoFallback = React.useCallback(() => (
         <div className={styles['logo-placeholder']}>{name}</div>
     ), [name]);
@@ -209,13 +240,13 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
             </div>
             <div className={styles['action-buttons-container']}>
                 {
-                    typeof trailerHref === 'string' ?
+                    typeof watchHref === 'string' ?
                         <ActionButton
                             className={styles['action-button']}
-                            icon={'trailer'}
-                            label={t('TRAILER')}
+                            icon={'play'}
+                            label={'Play'}
                             tabIndex={0}
-                            href={trailerHref}
+                            href={watchHref}
                             tooltip={compact}
                         />
                         :
@@ -306,6 +337,9 @@ MetaPreview.propTypes = {
     watched: PropTypes.bool,
     toggleWatched: PropTypes.func,
     ratingInfo: PropTypes.object,
+    metaId: PropTypes.string,
+    type: PropTypes.string,
+    videoId: PropTypes.string,
 };
 
 module.exports = MetaPreview;

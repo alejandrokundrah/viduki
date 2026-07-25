@@ -12,6 +12,7 @@ const { Button, Image, Popup } = require('stremio/components');
 const useBinaryState = require('stremio/common/useBinaryState');
 const useProfile = require('stremio/common/useProfile');
 const { usePlatform } = require('stremio/common/Platform');
+const { parseVidukiMedia } = require('stremio/common/viduki');
 const VideoPlaceholder = require('./VideoPlaceholder');
 const styles = require('./styles');
 
@@ -74,21 +75,45 @@ const Video = ({ className, id, title, thumbnail, season, episode, released, upc
             onSelect();
         }
     }, [onSelect]);
+    const getVidukiWatchPath = React.useCallback(() => {
+        if (!deepLinks) return null;
+        // Extract type/id/videoId from deepLinks.metaDetailsStreams or player URL
+        const ref = deepLinks.metaDetailsStreams || deepLinks.player || '';
+        const match = ref.match(/\/(movie|series|tv|movie|channel|other)\/([^\/]+)\/([^\/]+)/);
+        if (match) {
+            const [, mtype, mid, mvid] = match;
+            const parsed = parseVidukiMedia({ type: mtype, id: mid, videoId: mvid, video: { season, episode } });
+            if (parsed.mediaId) {
+                if (parsed.mediaType === 'tv') {
+                    return `/watch/viduki_1/${mtype}/${mid}/${mvid}`;
+                }
+                return `/watch/viduki_1/${mtype}/${mid}`;
+            }
+        }
+        // Fallback: forward to player path if available
+        return deepLinks.player ? toPath(deepLinks.player) : null;
+    }, [deepLinks, season, episode]);
+
     const videoButtonOnClick = React.useCallback(() => {
         selectVideo();
-
-        if (deepLinks && typeof deepLinks.metaDetailsStreams === 'string') {
+        const vidukiPath = getVidukiWatchPath();
+        if (vidukiPath) {
+            navigate(vidukiPath, { replace: !platform.isMobile });
+        } else if (deepLinks && typeof deepLinks.metaDetailsStreams === 'string') {
             navigate(toPath(deepLinks.metaDetailsStreams), { replace: !platform.isMobile });
         }
-    }, [deepLinks, navigate, platform.isMobile, selectVideo]);
+    }, [deepLinks, navigate, platform.isMobile, selectVideo, getVidukiWatchPath]);
     const playButtonOnClick = React.useCallback((event) => {
         event.preventDefault();
         event.stopPropagation();
         selectVideo();
-        if (deepLinks && typeof deepLinks.player === 'string') {
+        const vidukiPath = getVidukiWatchPath();
+        if (vidukiPath) {
+            navigate(vidukiPath);
+        } else if (deepLinks && typeof deepLinks.player === 'string') {
             navigate(toPath(deepLinks.player));
         }
-    }, [deepLinks, navigate, selectVideo]);
+    }, [deepLinks, navigate, selectVideo, getVidukiWatchPath]);
     const playButtonOnKeyDown = React.useCallback((event) => {
         event.stopPropagation();
     }, []);

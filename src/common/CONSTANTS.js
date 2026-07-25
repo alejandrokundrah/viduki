@@ -117,7 +117,7 @@ const EXTERNAL_PLAYERS = [
     },
 ];
 
-const WHITELISTED_HOSTS = ['stremio.com', 'strem.io', 'stremio.zendesk.com', 'google.com', 'youtube.com', 'twitch.tv', 'twitter.com', 'x.com', 'netflix.com', 'adex.network', 'amazon.com', 'forms.gle'];
+const WHITELISTED_HOSTS = ['stremio.com', 'strem.io', 'stremio.zendesk.com', 'google.com', 'twitch.tv', 'twitter.com', 'x.com', 'netflix.com', 'adex.network', 'amazon.com', 'forms.gle', 'tvchannellists.com', 'ntv.cx', 'streamsports99.su', 'famelack.com', 'dlhd.pk', 'daddylive.pk', 'thetvapp.to', 'livetv.moviebite.cc', 'pluto.tv', 'huhu.to', 'vavoo.to', 'cinebolt.net', 'globetv.app', 'ufreetv.com', 'hoofoot.ru', 'cxtvlive.com', 'watchtvs.live', 'cubiktv.com', 'rivestream.org', 'distro.tv', 'streamed.pk', 'sportyhunter.space', 'watchfooty.st', 'bintv.net', 'watchsports.to', 'timstreams.net', 'streamfree.app', 'sportsurge.net', 'daddylive.org', 'footstreams.xyz', 'ask4sport.xyz', 'footfy.net', 'streamcorner.vu', 'crichd.at', 'falconstreams.net', 'ppv.to', 'fctv33.lat', 'sportplus.live', 'viprow.co', 'streameast.ga', 'app.buffstream.io', 'roxiestreams.su', 'sports24.cc', 'sharkstreams.net', 'nbamonster.com', 'onhockey.tv', 'pitsport.live', 'overtakefans.com', 'nontonx.com', 'replay.nontonx.com', 'rugby24.net', 'tiz-cycling.tv', 'formula-timer.com', 'f1-dash.com', '720pier.ru', 'basketball-video.com', 'footballia.net', 'watch-wrestling.eu', 'watchprowrestling.live', 'watchmmafull.com', 'fullraces.com', 'classics.nascar.com', 'ntv.cx', 'ntvs.cx'];
 
 const PROTOCOL = 'stremio:';
 

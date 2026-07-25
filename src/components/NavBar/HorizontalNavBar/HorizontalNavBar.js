@@ -34,16 +34,29 @@ const HorizontalNavBar = React.memo(({ className, route, query, title, backButto
         <nav {...props} className={classnames(className, styles['horizontal-nav-bar-container'])}>
             {
                 backButton ?
-                    <Button className={classnames(styles['button-container'], styles['back-button-container'])} tabIndex={-1} onClick={backButtonOnClick}>
+                    <Button className={classnames(styles['button-container'], styles['back-button-container'])} tabIndex={-1} onClick={backButtonOnClick} title={t('BACK') || 'Back'}>
                         <Icon className={styles['icon']} name={'chevron-back'} />
+                        <span className={styles['back-label']}>Back</span>
                     </Button>
                     :
                     <div className={styles['logo-container']}>
-                        <Image
-                            className={styles['logo']}
-                            src={require('/assets/images/stremio_symbol.png')}
-                            alt={' '}
-                        />
+                        <div className={styles['logo-wrapper']}>
+                            <svg className={styles['brand-svg']} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="vidukiNavGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#c084fc" />
+                                        <stop offset="50%" stopColor="#9333ea" />
+                                        <stop offset="100%" stopColor="#06b6d4" />
+                                    </linearGradient>
+                                    <filter id="vidukiNavGlow" x="-30%" y="-30%" width="160%" height="160%">
+                                        <feGaussianBlur stdDeviation="2.5" result="blur" />
+                                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                    </filter>
+                                </defs>
+                                <path d="M10 6.5C10 5.11929 11.4922 4.25633 12.6879 4.94635L26.545 12.9464C27.7407 13.6364 27.7407 15.3623 26.545 16.0523L12.6879 24.0523C11.4922 24.7423 10 23.8794 10 22.4987V6.5Z" fill="url(#vidukiNavGrad)" filter="url(#vidukiNavGlow)"/>
+                            </svg>
+                            <span className={styles['logo-text']}>VIDUKI</span>
+                        </div>
                     </div>
             }
             {

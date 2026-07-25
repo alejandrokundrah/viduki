@@ -203,6 +203,9 @@ const MetaDetails = () => {
                                             watched={metaDetails.metaItem.content.content.watched}
                                             toggleWatched={toggleWatched}
                                             metaId={metaDetails.metaItem.content.content.id}
+                                            type={metaDetails.metaItem.content.content.type || type}
+                                            videoId={video?.id || videoId}
+                                            deepLinks={metaDetails.metaItem.content.content.deepLinks}
                                             ratingInfo={metaDetails.ratingInfo}
                                         />
                                     </React.Fragment>
@@ -215,6 +218,7 @@ const MetaDetails = () => {
                             streams={metaDetails.streams}
                             video={video}
                             type={streamPath.type}
+                            metaId={metaPath?.id || urlParams.id}
                             onEpisodeSearch={handleEpisodeSearch}
                         />
                         :
