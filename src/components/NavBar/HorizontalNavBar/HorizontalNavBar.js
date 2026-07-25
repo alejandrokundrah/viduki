@@ -55,7 +55,6 @@ const HorizontalNavBar = React.memo(({ className, route, query, title, backButto
                                 </defs>
                                 <path d="M10 6.5C10 5.11929 11.4922 4.25633 12.6879 4.94635L26.545 12.9464C27.7407 13.6364 27.7407 15.3623 26.545 16.0523L12.6879 24.0523C11.4922 24.7423 10 23.8794 10 22.4987V6.5Z" fill="url(#vidukiNavGrad)" filter="url(#vidukiNavGlow)"/>
                             </svg>
-                            <span className={styles['logo-text']}>VIDUKI</span>
                         </div>
                     </div>
             }
