@@ -1,5 +1,3 @@
-// Copyright (C) 2017-2023 Smart code 203358507
-
 const React = require('react');
 const classnames = require('classnames');
 const debounce = require('lodash.debounce');
@@ -8,6 +6,10 @@ const { useStreamingServer, useNotifications, withCoreSuspender, getVisibleChild
 const { ContinueWatchingItem, EventModal, MainNavBars, MetaItem, MetaRow } = require('stremio/components');
 const useBoard = require('./useBoard');
 const useContinueWatchingPreview = require('./useContinueWatchingPreview');
+const HeroBanner = require('./HeroBanner');
+const TrendingRow = require('./TrendingRow');
+const OnplayFooter = require('./OnplayFooter');
+const WebtorPlayer = require('../../components/WebtorPlayer');
 const styles = require('./styles');
 const { default: StreamingServerWarning } = require('./StreamingServerWarning');
 
@@ -22,11 +24,23 @@ const Board = () => {
     const profile = useProfile();
     const boardCatalogsOffset = continueWatchingPreview.items.length > 0 ? 1 : 0;
     const scrollContainerRef = React.useRef();
+    const [webtorOpen, setWebtorOpen] = React.useState(false);
     const showStreamingServerWarning = React.useMemo(() => {
         return streamingServer.settings !== null && streamingServer.settings.type === 'Err' && (
             isNaN(profile.settings.streamingServerWarningDismissed.getTime()) ||
             profile.settings.streamingServerWarningDismissed.getTime() < Date.now());
     }, [profile.settings, streamingServer.settings]);
+
+    const heroFeaturedItem = React.useMemo(() => {
+        if (board.catalogs && board.catalogs.length > 0) {
+            const firstReady = board.catalogs.find(c => c.content?.type === 'Ready' && Array.isArray(c.content.content) && c.content.content.length > 0);
+            if (firstReady) {
+                return firstReady.content.content[0];
+            }
+        }
+        return null;
+    }, [board.catalogs]);
+
     const onVisibleRangeChange = React.useCallback(() => {
         const range = getVisibleChildrenRange(scrollContainerRef.current);
         if (range === null) {
@@ -41,15 +55,24 @@ const Board = () => {
 
         loadBoardRows({ start, end });
     }, [boardCatalogsOffset]);
+
     const onScroll = React.useCallback(debounce(onVisibleRangeChange, 250), [onVisibleRangeChange]);
+
     React.useLayoutEffect(() => {
         onVisibleRangeChange();
     }, [board.catalogs, onVisibleRangeChange]);
+
     return (
         <div className={styles['board-container']}>
             <EventModal />
             <MainNavBars className={styles['board-content-container']} route={'board'}>
                 <div ref={scrollContainerRef} className={styles['board-content']} onScroll={onScroll}>
+                    {/* Onplay Hero Section */}
+                    <HeroBanner item={heroFeaturedItem} />
+
+                    {/* Onplay Latest & Trending Row with 1-5 rank numbers */}
+                    <TrendingRow />
+
                     {
                         continueWatchingPreview.items.length > 0 ?
                             <MetaRow
@@ -62,13 +85,14 @@ const Board = () => {
                             :
                             null
                     }
+
                     {board.catalogs.map((catalog, index) => {
                         switch (catalog.content?.type) {
                             case 'Ready': {
                                 return (
                                     <MetaRow
                                         key={index}
-                                        className={classnames(styles['board-row'], styles[`board-row-${catalog.content.content[0].posterShape}`], 'animation-fade-in')}
+                                        className={classnames(styles['board-row'], styles[`board-row-${catalog.content.content[0]?.posterShape || 'poster'}`], 'animation-fade-in')}
                                         catalog={catalog}
                                         itemComponent={MetaItem}
                                     />
@@ -99,6 +123,9 @@ const Board = () => {
                             }
                         }
                     })}
+
+                    {/* Onplay Footer */}
+                    <OnplayFooter />
                 </div>
             </MainNavBars>
             {
@@ -107,6 +134,17 @@ const Board = () => {
                     :
                     null
             }
+            {/* Webtor floating button */}
+            <button
+                className={styles['webtor-fab']}
+                onClick={() => setWebtorOpen(true)}
+                title="Play any torrent via Webtor"
+            >
+                <span className={styles['fab-icon']}>⚡</span>
+                <span className={styles['fab-label']}>Play Torrent</span>
+            </button>
+            {/* Webtor modal */}
+            {webtorOpen && <WebtorPlayer onClose={() => setWebtorOpen(false)} />}
         </div>
     );
 };

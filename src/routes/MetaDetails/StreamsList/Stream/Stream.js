@@ -237,6 +237,37 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
         );
     }, [thumbnail, progress, addonName, name, description, href, target, download, onClick]);
 
+    const openInWebtor = React.useCallback((event) => {
+        if (event) event.preventDefault();
+        closeMenu();
+
+        let targetMagnet = null;
+        if (magnetLink && magnetLink.startsWith('magnet:')) {
+            targetMagnet = magnetLink;
+        } else if (streamLink && streamLink.startsWith('magnet:')) {
+            targetMagnet = streamLink;
+        } else if (props.infoHash) {
+            targetMagnet = `magnet:?xt=urn:btih:${props.infoHash}`;
+        } else if (props.stream && props.stream.infoHash) {
+            targetMagnet = `magnet:?xt=urn:btih:${props.stream.infoHash}`;
+        } else if (typeof description === 'string') {
+            const match = description.match(/([a-fA-F0-9]{40})/);
+            if (match) targetMagnet = `magnet:?xt=urn:btih:${match[1]}`;
+        } else if (streamLink) {
+            targetMagnet = streamLink;
+        }
+
+        if (targetMagnet) {
+            window.dispatchEvent(new CustomEvent('open-webtor-player', { detail: { magnet: targetMagnet } }));
+        } else {
+            toast.show({
+                type: 'error',
+                title: 'No torrent link available for this stream',
+                timeout: 3000
+            });
+        }
+    }, [magnetLink, streamLink, props.infoHash, props.stream, description, closeMenu, toast]);
+
     const renderMenu = React.useMemo(() => function renderMenu() {
         return (
             <div className={styles['context-menu-content']} onPointerDown={popupMenuOnPointerDown} onContextMenu={popupMenuOnContextMenu} onClick={popupMenuOnClick} onKeyDown={popupMenuOnKeyDown}>
@@ -246,6 +277,10 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                 <Button className={styles['context-menu-option-container']} title={t('CTX_PLAY')}>
                     <Icon className={styles['menu-icon']} name={'play'} />
                     <div className={styles['context-menu-option-label']}>{t('CTX_PLAY')}</div>
+                </Button>
+                <Button className={styles['context-menu-option-container']} title="Play in Webtor Torrent Player" onClick={openInWebtor}>
+                    <span style={{ fontSize: '1rem', marginRight: '0.4rem' }}>⚡</span>
+                    <div className={styles['context-menu-option-label']} style={{ color: '#fcf007', fontWeight: 600 }}>Play with Webtor Player</div>
                 </Button>
                 {
                     streamLink &&
@@ -270,7 +305,7 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                 }
             </div>
         );
-    }, [copyStreamLink, onClick]);
+    }, [copyStreamLink, copyMagnetLink, copyDownloadLink, openInWebtor, onClick, description, t]);
 
     React.useEffect(() => {
         if (!routeFocused) {

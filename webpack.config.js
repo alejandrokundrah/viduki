@@ -242,7 +242,7 @@ module.exports = (env, argv) => ({
             patterns: [
                 { from: 'assets/favicons', to: 'favicons' },
                 { from: 'assets/images', to: 'images' },
-                { from: 'assets/screenshots/*.webp', to: 'screenshots/[name][ext]' },
+                { from: 'assets/screenshots/*.webp', to: 'screenshots/[name][ext]', noErrorOnMissing: true },
                 { from: '.well-known', to: '.well-known' },
                 { from: 'manifest.json', to: 'manifest.json' },
             ]

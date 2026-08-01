@@ -3,23 +3,23 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Viduki">
-    <link rel="icon" type="image/x-icon" href="<%= htmlWebpackPlugin.options.faviconsPath %>/favicon.ico">
+    <meta name="apple-mobile-web-app-title" content="Onplay">
+    <link rel="icon" type="image/svg+xml" href="<%= htmlWebpackPlugin.options.faviconsPath %>/favicon.svg">
     <link rel="manifest" href="manifest.json" />
-    <link rel="preconnect" href="https://viduki.net" crossorigin>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://appleid.cdn-apple.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; frame-src 'self' https://viduki.net https://*.viduki.net; font-src 'self' data:; connect-src 'self' https: wss: blob:; worker-src 'self' blob:;">
-    <title>Viduki - Freedom to Stream</title>
+    <title>Onplay - Watch Movies &amp; Series</title>
     <%= htmlWebpackPlugin.tags.headTags %>
 </head>
 
 <body>
     <div id="app"></div>
     <%= htmlWebpackPlugin.tags.bodyTags %>
-    <script src="//www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
-    <script async src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"></script>
+        <script src="//www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
+        <script async
+            src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"></script>
 </body>
 
 </html>

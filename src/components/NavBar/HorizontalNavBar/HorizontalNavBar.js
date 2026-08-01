@@ -39,25 +39,11 @@ const HorizontalNavBar = React.memo(({ className, route, query, title, backButto
                         <span className={styles['back-label']}>Back</span>
                     </Button>
                     :
-                    <div className={styles['logo-container']}>
-                        <div className={styles['logo-wrapper']}>
-                            <svg className={styles['brand-svg']} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <defs>
-                                    <linearGradient id="vidukiNavGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stopColor="#c084fc" />
-                                        <stop offset="50%" stopColor="#9333ea" />
-                                        <stop offset="100%" stopColor="#06b6d4" />
-                                    </linearGradient>
-                                    <filter id="vidukiNavGlow" x="-30%" y="-30%" width="160%" height="160%">
-                                        <feGaussianBlur stdDeviation="2.5" result="blur" />
-                                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                                    </filter>
-                                </defs>
-                                <path d="M10 6.5C10 5.11929 11.4922 4.25633 12.6879 4.94635L26.545 12.9464C27.7407 13.6364 27.7407 15.3623 26.545 16.0523L12.6879 24.0523C11.4922 24.7423 10 23.8794 10 22.4987V6.5Z" fill="url(#vidukiNavGrad)" filter="url(#vidukiNavGlow)"/>
-                            </svg>
-                        </div>
+                    <div className={styles['logo-container']} onClick={() => navigate('/')}>
+                        <img className={styles['brand-logo']} src={require('/assets/images/Onplay Logo.svg')} alt="Onplay" />
                     </div>
             }
+
             {
                 typeof title === 'string' && title.length > 0 ?
                     <h2 className={styles['title']}>{title}</h2>
@@ -79,6 +65,20 @@ const HorizontalNavBar = React.memo(({ className, route, query, title, backButto
                         :
                         null
                 }
+                <Button className={styles['button-container']} title="Cast" tabIndex={-1}>
+                    <svg className={styles['nav-icon']} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 16.1A9 9 0 0 1 15.9 2"></path>
+                        <path d="M2 12A5 5 0 0 1 7 7"></path>
+                        <path d="M2 20h.01"></path>
+                    </svg>
+                </Button>
+                <Button className={classnames(styles['button-container'], styles['notification-btn'])} title="Notifications" tabIndex={-1}>
+                    <span className={styles['notification-badge']} />
+                    <svg className={styles['nav-icon']} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                </Button>
                 {
                     supported && fullscreenButton ?
                         <Button className={styles['button-container']} title={fullscreen ? t('EXIT_FULLSCREEN') : t('ENTER_FULLSCREEN')} tabIndex={-1} onClick={fullscreen ? exitFullscreen : requestFullscreen}>

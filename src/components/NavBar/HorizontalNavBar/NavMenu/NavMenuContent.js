@@ -11,8 +11,6 @@ const { Button } = require('stremio/components');
 const { useFullscreen } = require('stremio/common/Fullscreen');
 const useProfile = require('stremio/common/useProfile');
 const usePWA = require('stremio/common/usePWA');
-const { default: usePlayUrl } = require('stremio/common/usePlayUrl');
-const useToast = require('stremio/common/Toast/useToast');
 const { withCoreSuspender } = require('stremio/common/CoreSuspender');
 const useStreamingServer = require('stremio/common/useStreamingServer');
 const styles = require('./styles');
@@ -23,8 +21,6 @@ const NavMenuContent = ({ onClick }) => {
     const core = useCore();
     const profile = useProfile();
     const streamingServer = useStreamingServer();
-    const { handlePlayUrl } = usePlayUrl();
-    const toast = useToast();
     const [fullscreen, requestFullscreen, exitFullscreen, , supported] = useFullscreen();
     const [, isAndroidPWA] = usePWA();
     const streamingServerWarningDismissed = React.useMemo(() => {
@@ -41,21 +37,7 @@ const NavMenuContent = ({ onClick }) => {
             }
         });
     }, []);
-    const onPlayMagnetLinkClick = React.useCallback(async () => {
-        try {
-            const clipboardText = await navigator.clipboard.readText();
-            const handled = await handlePlayUrl(clipboardText);
-            if (!handled) {
-                toast.show({
-                    type: 'error',
-                    title: 'Clipboard does not contain a valid URL or magnet link.',
-                    timeout: 5000
-                });
-            }
-        } catch(e) {
-            console.error(e);
-        }
-    }, [handlePlayUrl]);
+
     const handleAuth = React.useCallback(() => {
         return profile.auth !== null
             ? logoutButtonOnClick()
@@ -106,10 +88,7 @@ const NavMenuContent = ({ onClick }) => {
                     <Icon className={styles['icon']} name={'addons-outline'} />
                     <div className={styles['nav-menu-option-label']}>{ t('ADDONS') }</div>
                 </Button>
-                <Button className={styles['nav-menu-option-container']} title={ t('PLAY_URL_MAGNET_LINK') } onClick={onPlayMagnetLinkClick}>
-                    <Icon className={styles['icon']} name={'magnet-link'} />
-                    <div className={styles['nav-menu-option-label']}>{ t('PLAY_URL_MAGNET_LINK') }</div>
-                </Button>
+
                 <Button className={styles['nav-menu-option-container']} title="Live TV" href={'#/live-tv'}>
                     <Icon className={styles['icon']} name={'tv'} />
                     <div className={styles['nav-menu-option-label']}>Live TV</div>

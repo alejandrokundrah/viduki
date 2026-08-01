@@ -16,6 +16,25 @@ const { default: ShortcutsModal } = require('./ShortcutsModal');
 const { default: GamepadModal } = require('./GamepadModal');
 const styles = require('./styles');
 
+const WebtorPlayer = require('../components/WebtorPlayer');
+
+const GlobalWebtorPlayer = () => {
+    const [open, setOpen] = React.useState(false);
+    const [magnet, setMagnet] = React.useState('');
+
+    React.useEffect(() => {
+        const handler = (e) => {
+            setMagnet(e.detail?.magnet || '');
+            setOpen(true);
+        };
+        window.addEventListener('open-webtor-player', handler);
+        return () => window.removeEventListener('open-webtor-player', handler);
+    }, []);
+
+    if (!open) return null;
+    return <WebtorPlayer initialMagnet={magnet} onClose={() => setOpen(false)} />;
+};
+
 const ProtectedRoutes = withCoreSuspender(Routes);
 const NAVIGATE_TABS_ROUTES = ['/', '/discover', '/library', '/calendar', '/addons', '/settings'];
 
@@ -185,6 +204,35 @@ const App = () => {
         };
     }, []);
 
+    // Install essential addons (Cinemeta, Torrentio, Netflix Catalog) on first mount
+    React.useEffect(() => {
+        const ADDONS = [
+            'https://v3-cinemeta.strem.io/manifest.json',
+            'https://torrentio.strem.fun/manifest.json',
+            'https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/manifest.json',
+        ];
+
+        ADDONS.forEach((url) => {
+            fetch(url)
+                .then(res => res.json())
+                .then(manifest => {
+                    if (manifest && manifest.id) {
+                        core.transport.dispatch({
+                            action: 'Ctx',
+                            args: {
+                                action: 'InstallAddon',
+                                args: {
+                                    transportUrl: url,
+                                    manifest
+                                }
+                            }
+                        });
+                    }
+                })
+                .catch(err => console.warn(`Addon install skipped (${url}):`, err));
+        });
+    }, []);
+
     return (
         <ServicesProvider services={services}>
             <ToastProvider className={styles['toasts-container']}>
@@ -204,6 +252,7 @@ const App = () => {
                                     <DeepLinkHandler />
                                     <UpdaterBanner className={styles['updater-banner-container']} />
                                     <ProtectedRoutes />
+                                    <GlobalWebtorPlayer />
                                 </DiscordProvider>
                             </FullscreenProvider>
                         </ShortcutsProvider>
