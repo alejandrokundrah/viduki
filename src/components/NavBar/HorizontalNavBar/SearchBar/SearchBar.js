@@ -64,15 +64,20 @@ const SearchBar = React.memo(({ className, query, active }) => {
         }
     }, [handlePlayUrl]);
 
-    const queryInputOnSubmit = React.useCallback((event) => {
+    const queryInputOnSubmit = React.useCallback(async (event) => {
         event.preventDefault();
-        const searchValue = `/search?search=${encodeURIComponent(event.target.value)}`;
+        const value = searchInputRef.current ? searchInputRef.current.value : event.target.value;
+        if (value) {
+            const played = await handlePlayUrl(value);
+            if (played) return;
+        }
+        const searchValue = `/search?search=${encodeURIComponent(value)}`;
         setCurrentQuery(searchValue);
         if (searchInputRef.current && searchValue) {
-            setSearchParams({ search: event.target.value });
+            setSearchParams({ search: value });
             closeHistory();
         }
-    }, []);
+    }, [handlePlayUrl, setSearchParams, closeHistory]);
 
     const queryInputClear = React.useCallback(() => {
         searchInputRef.current.value = '';

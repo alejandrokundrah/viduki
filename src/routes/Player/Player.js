@@ -1,81 +1,171 @@
 // Copyright (C) 2017-2026 Smart code 203358507
 
 const React = require('react');
+const PropTypes = require('prop-types');
 const { useParams, useNavigate } = require('react-router');
-const { withCoreSuspender, useCoreSuspender, useStreamingServer } = require('stremio/common');
-const { parseVidukiMedia, getVidukiUrl, getNextFallbackApi, VIDUKI_APIS } = require('stremio/common/viduki');
-const { useFullscreen } = require('stremio/common');
+const { useSearchParams } = require('react-router-dom');
+const classnames = require('classnames');
+const debounce = require('lodash.debounce');
+const langs = require('langs');
+const { useTranslation } = require('react-i18next');
+const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
+const { useCore } = require('stremio/core');
+const { useServices, useGamepad } = require('stremio/services');
+const { useContentGamepadNavigation } = require('stremio/services/GamepadNavigation');
+const { useSettings, useProfile, useFullscreen, useBinaryState, useToast, useStreamingServer, withCoreSuspender, usePlatform, onShortcut, getKeyboardShortcutKey, getKeyboardShortcutKeys, useDiscord, EMPTY_DISCORD_TIMESTAMPS, getPlaybackDiscordActivity } = require('stremio/common');
+const { parseVidukiMedia, getVidukiUrl, VIDUKI_APIS } = require('stremio/common/viduki');
+const { default: toPath } = require('stremio-router/toPath');
+const { HorizontalNavBar, Transition, ContextMenu } = require('stremio/components');
+const { default: Buffering } = require('./Buffering');
+const VolumeChangeIndicator = require('./VolumeChangeIndicator');
+const Error = require('./Error');
+const ControlBar = require('./ControlBar');
+const NextVideoPopup = require('./NextVideoPopup');
+const StatisticsMenu = require('./StatisticsMenu');
+const OptionsMenu = require('./OptionsMenu');
+const { default: CastDevicesMenu } = require('./CastDevicesMenu');
+const SubtitlesMenu = require('./SubtitlesMenu');
+const { default: AudioMenu } = require('./AudioMenu');
+const SpeedMenu = require('./SpeedMenu');
+const { default: SideDrawerButton } = require('./SideDrawerButton');
+const { default: SideDrawer } = require('./SideDrawer');
+const usePlayer = require('./usePlayer');
+const { default: usePlayOnDevice } = require('./usePlayOnDevice');
+const { default: useKeyboardSeek } = require('./useKeyboardSeek');
+const useStatistics = require('./useStatistics');
 const useVideo = require('./useVideo');
-const Video = require('./Video');
+const { default: useSubtitles } = require('./useSubtitles');
 const styles = require('./styles');
+const Video = require('./Video');
+const { default: Indicator } = require('./Indicator/Indicator');
+const { default: useMediaSession } = require('./useMediaSession');
+const Hls = require('hls.js');
 
-const ICONS = {
-    back: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-        </svg>
-    ),
-    fsEnter: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 3 21 3 21 9" /><line x1="21" y1="3" x2="14" y2="10" />
-            <polyline points="9 21 3 21 3 15" /><line x1="3" y1="21" x2="10" y2="14" />
-        </svg>
-    ),
-    fsExit: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="8 3 3 3 3 8" /><line x1="3" y1="3" x2="9" y2="9" />
-            <polyline points="16 3 21 3 21 8" /><line x1="21" y1="3" x2="15" y2="9" />
-            <polyline points="8 21 3 21 3 16" /><line x1="3" y1="21" x2="9" y2="15" />
-        </svg>
-    ),
+const findTrackByLang = (tracks, lang) => tracks.find((track) => track.lang === lang || langs.where('1', track.lang)?.[2] === lang);
+const findTrackById = (tracks, id) => tracks.find((track) => track.id === id);
+
+// Native video player for direct URLs — bypasses Stremio engine and CORS restrictions
+const DirectVideoPlayer = React.forwardRef(({ src, className, onClick, onDoubleClick }, ref) => {
+    const videoRef = React.useRef(null);
+
+    React.useEffect(() => {
+        const video = videoRef.current;
+        if (!video || !src) return;
+
+        const isHls = src.includes('.m3u8') || src.includes('/hls/');
+
+        if (isHls && Hls.isSupported()) {
+            const hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: false,
+                xhrSetup: (xhr) => {
+                    xhr.withCredentials = false;
+                },
+            });
+            hls.loadSource(src);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().catch(() => undefined);
+            });
+            hls.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) {
+                    console.error('HLS fatal error', data);
+                }
+            });
+            return () => {
+                hls.destroy();
+            };
+        } else {
+            video.src = src;
+            video.play().catch(() => undefined);
+        }
+    }, [src]);
+
+    return (
+        <div
+            ref={ref}
+            className={className}
+            onClick={onClick}
+            onDoubleClick={onDoubleClick}
+            style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}
+        >
+            <video
+                ref={videoRef}
+                style={{ width: '100%', height: '100%', display: 'block' }}
+                controls
+                playsInline
+                preload="auto"
+            />
+        </div>
+    );
+});
+DirectVideoPlayer.displayName = 'DirectVideoPlayer';
+DirectVideoPlayer.propTypes = {
+    src: PropTypes.string.isRequired,
+    className: PropTypes.string,
+    onClick: PropTypes.func,
+    onDoubleClick: PropTypes.func,
 };
+
+const GAMEPAD_HANDLER_ID = 'player';
+const CAST_DEVICES_REFRESH_INTERVAL = 5000;
 
 const API_LABELS = {
     1: { short: 'S1', full: 'Multi Server', badge: 'BEST' },
-    2: { short: 'S2', full: 'Multi Lang',   badge: 'LANG' },
-    3: { short: 'S3', full: 'Multi Embeds', badge: 'ALT'  },
-    4: { short: 'S4', full: 'Premium',      badge: 'HD'   },
+    2: { short: 'S2', full: 'Multi Lang', badge: 'LANG' },
+    3: { short: 'S3', full: 'Multi Embeds', badge: 'ALT' },
+    4: { short: 'S4', full: 'Premium', badge: 'HD' },
 };
 
 const Player = () => {
-    const { stream, type, id, videoId } = useParams();
+    const { stream, streamTransportUrl, metaTransportUrl, type, id, videoId } = useParams();
+    const urlParams = React.useMemo(() => ({
+        stream,
+        streamTransportUrl,
+        metaTransportUrl,
+        type,
+        id,
+        videoId
+    }), [stream, streamTransportUrl, metaTransportUrl, type, id, videoId]);
+
+    const [queryParams] = useSearchParams();
     const navigate = useNavigate();
-    const { decodeStream } = useCoreSuspender();
+    const { t } = useTranslation();
+    const services = useServices();
+    const core = useCore();
+    const gamepad = useGamepad();
+    const forceTranscoding = React.useMemo(() => {
+        return queryParams.has('forceTranscoding');
+    }, [queryParams]);
+    const profile = useProfile();
+    const [player, videoParamsChanged, streamStateChanged, timeChanged, seek, pausedChanged, ended, nextVideo] = usePlayer(urlParams);
+    const [settings] = useSettings();
     const streamingServer = useStreamingServer();
+    const statistics = useStatistics(player, streamingServer);
+    const video = useVideo();
+    const routeFocused = useRouteFocused();
+    const platform = usePlatform();
+    const toast = useToast();
+    const discord = useDiscord();
+    const discordTimestamps = React.useRef(EMPTY_DISCORD_TIMESTAMPS);
 
     const isViduki = typeof stream === 'string' && stream.startsWith('viduki_');
-    const video = useVideo();
 
-    const [decodedStream, setDecodedStream] = React.useState(null);
-
-    React.useEffect(() => {
-        if (isViduki || typeof stream !== 'string') return;
+    const directUrl = React.useMemo(() => {
+        if (isViduki || typeof stream !== 'string') return null;
+        let rawUrl = stream;
         try {
-            const decoded = decodeStream(stream);
-            setDecodedStream(decoded);
-        } catch (e) {
-            console.error('Failed to decode stream:', e);
+            rawUrl = decodeURIComponent(stream);
+        } catch (_error) {
+            rawUrl = stream;
         }
+        if (/^https?:\/\/.+/i.test(rawUrl)) {
+            return rawUrl;
+        }
+        return null;
     }, [stream, isViduki]);
 
-    React.useEffect(() => {
-        if (!isViduki && decodedStream) {
-            const streamingServerURL = streamingServer.baseUrl ?
-                streamingServer.selected.transportUrl
-                :
-                null;
-            video.load({
-                stream: decodedStream,
-                subtitles: [],
-                streamingServerURL: streamingServerURL,
-            });
-        }
-        return () => {
-            if (!isViduki) {
-                video.unload();
-            }
-        };
-    }, [decodedStream, isViduki, streamingServer.baseUrl, streamingServer.selected]);
+    const [useIframePlayer, setUseIframePlayer] = React.useState(false);
 
     const initialApi = React.useMemo(() => {
         if (isViduki) {
@@ -86,12 +176,7 @@ const Player = () => {
     }, [stream, isViduki]);
 
     const [currentApi, setCurrentApi] = React.useState(initialApi);
-    const [allFailed, setAllFailed] = React.useState(false);
-    const [overlayVisible, setOverlayVisible] = React.useState(true);
-    const overlayTimer = React.useRef(null);
-    const containerRef = React.useRef(null);
-
-    const [fullscreen, , , toggleFullscreen] = useFullscreen();
+    const [allFailed] = React.useState(false);
 
     const mediaInfo = React.useMemo(() => {
         if (isViduki) {
@@ -112,194 +197,1202 @@ const Player = () => {
         });
     }, [isViduki, currentApi, mediaInfo]);
 
-    const addonUrl = React.useMemo(() => {
-        if (isViduki || !decodedStream) return null;
-        return decodedStream.url || null;
-    }, [isViduki, decodedStream]);
+    const [seeking, setSeeking] = React.useState(false);
+    const [casting, setCasting] = React.useState(() => {
+        return services.chromecast.active && services.chromecast.transport.getCastState() === cast.framework.CastState.CONNECTED;
+    });
+    const playbackDevices = React.useMemo(() => streamingServer.playbackDevices !== null && streamingServer.playbackDevices.type === 'Ready' ? streamingServer.playbackDevices.content : [], [streamingServer]);
 
-    const isTorrentAddon = React.useMemo(() => {
-        if (isViduki || !decodedStream) return false;
-        return typeof decodedStream.infoHash === 'string' && typeof decodedStream.fileIdx === 'number';
-    }, [isViduki, decodedStream]);
+    const playerRef = React.useRef(null);
+    const bufferingRef = React.useRef();
+    const errorRef = React.useRef();
 
-    const showOverlay = React.useCallback(() => {
-        setOverlayVisible(true);
-        clearTimeout(overlayTimer.current);
-        overlayTimer.current = setTimeout(() => setOverlayVisible(false), 4000);
-    }, []);
+    const [immersed, setImmersed] = React.useState(true);
+    const setImmersedDebounced = React.useCallback(debounce(setImmersed, 3000), []);
+    const [fullscreen, , , toggleFullscreen, , setVideoElement] = useFullscreen();
 
     React.useEffect(() => {
-        showOverlay();
-        return () => clearTimeout(overlayTimer.current);
+        const el = video.containerRef.current?.querySelector('video');
+        setVideoElement(el || null);
+        return () => setVideoElement(null);
+    }, [video.state.manifest]);
+
+    const [optionsMenuOpen, , closeOptionsMenu, toggleOptionsMenu] = useBinaryState(false);
+    const [subtitlesMenuOpen, , closeSubtitlesMenu, toggleSubtitlesMenu] = useBinaryState(false);
+    const [audioMenuOpen, , closeAudioMenu, toggleAudioMenu] = useBinaryState(false);
+    const [speedMenuOpen, , closeSpeedMenu, toggleSpeedMenu] = useBinaryState(false);
+    const [statisticsMenuOpen, openStatisticsMenu, closeStatisticsMenu, toggleStatisticsMenu] = useBinaryState(false);
+    const [castDevicesMenuOpen, , closeCastDevicesMenu, toggleCastDevicesMenu] = useBinaryState(false);
+    const [nextVideoPopupOpen, openNextVideoPopup, closeNextVideoPopup] = useBinaryState(false);
+    const [sideDrawerOpen, , closeSideDrawer, toggleSideDrawer] = useBinaryState(false);
+
+    const menusOpen = React.useMemo(() => {
+        return optionsMenuOpen || subtitlesMenuOpen || audioMenuOpen || speedMenuOpen || statisticsMenuOpen || castDevicesMenuOpen || sideDrawerOpen || nextVideoPopupOpen;
+    }, [optionsMenuOpen, subtitlesMenuOpen, audioMenuOpen, speedMenuOpen, statisticsMenuOpen, castDevicesMenuOpen, sideDrawerOpen, nextVideoPopupOpen]);
+
+    const closeMenus = React.useCallback(() => {
+        closeOptionsMenu();
+        closeSubtitlesMenu();
+        closeAudioMenu();
+        closeSpeedMenu();
+        closeStatisticsMenu();
+        closeCastDevicesMenu();
+        closeSideDrawer();
     }, []);
 
+    const castDevices = React.useMemo(() => {
+        return playbackDevices
+            .filter(({ type }) => type === 'chromecast' || type === 'tv')
+            .sort((a, b) => a.type === b.type ? 0 : a.type === 'chromecast' ? -1 : 1);
+    }, [playbackDevices]);
+    const [castDevicesSearching, setCastDevicesSearching] = React.useState(false);
+    const castDevicesLoading = platform.shell.active && (castDevicesSearching || (streamingServer.playbackDevices !== null && streamingServer.playbackDevices.type === 'Loading'));
+    const { streamingUrl: castStreamingUrl, playOnDevice } = usePlayOnDevice(player.selected?.stream ?? null);
+    const shellCastSupported = platform.shell.active && castStreamingUrl !== null;
+    const refreshCastDevices = React.useCallback(() => {
+        if (platform.shell.active) {
+            core.transport.dispatch({
+                action: 'StreamingServer',
+                args: {
+                    action: 'RefreshPlaybackDevices',
+                }
+            });
+        }
+    }, [platform.shell.active]);
+    const onCastDeviceSelected = React.useCallback((deviceId) => {
+        playOnDevice(deviceId, video.state.time);
+        closeCastDevicesMenu();
+    }, [playOnDevice, video.state.time]);
     React.useEffect(() => {
-        const onMove = () => showOverlay();
-        window.addEventListener('mousemove', onMove);
-        const onBlur = () => showOverlay();
-        window.addEventListener('blur', onBlur);
+        if (castDevicesMenuOpen && platform.shell.active) {
+            setCastDevicesSearching(true);
+            refreshCastDevices();
+            const interval = setInterval(refreshCastDevices, CAST_DEVICES_REFRESH_INTERVAL);
+            const timeout = setTimeout(() => setCastDevicesSearching(false), CAST_DEVICES_REFRESH_INTERVAL);
+            return () => {
+                clearInterval(interval);
+                clearTimeout(timeout);
+                setCastDevicesSearching(false);
+            };
+        }
+    }, [castDevicesMenuOpen, refreshCastDevices]);
+
+    const {
+        streamSubtitles,
+        allSubtitleTracks,
+        extraSubtitleTracks,
+        selectedExtraSubtitleTrackId,
+        subtitlesMenuProps,
+    } = useSubtitles({
+        player,
+        video,
+        settings,
+        streamStateChanged,
+        menusOpen,
+        closeMenus,
+        closeSubtitlesMenu,
+        toggleSubtitlesMenu,
+    });
+
+    const nextVideoPopupDismissed = React.useRef(false);
+    const defaultAudioTrackSelected = React.useRef(false);
+    const playingOnExternalDevice = React.useRef(false);
+    const [error, setError] = React.useState(null);
+
+    const VIDEO_SCALES = ['contain', 'cover', 'fill'];
+    const VIDEO_SCALE_LABELS = { contain: t('PLAYER_SCALE_FIT'), cover: t('PLAYER_SCALE_CROP'), fill: t('PLAYER_SCALE_STRETCH') };
+
+    const playbackSpeed = React.useRef(video.state.playbackSpeed || 1);
+    const pressTimer = React.useRef(null);
+    const longPress = React.useRef(false);
+    const detailsHold = React.useRef(null);
+    const controlBarRef = React.useRef(null);
+
+    const HOLD_DELAY = 400;
+
+    const handleNextVideoNavigation = React.useCallback((deepLinks, bingeWatching, ended) => {
+        if (ended) {
+            if (bingeWatching) {
+                if (deepLinks.player) {
+                    navigate(toPath(deepLinks.player), { replace: true });
+                } else if (deepLinks.metaDetailsStreams) {
+                    navigate(toPath(deepLinks.metaDetailsStreams), { replace: true });
+                }
+            } else {
+                navigate(-1);
+            }
+        } else {
+            if (deepLinks.player) {
+                navigate(toPath(deepLinks.player), { replace: true });
+            } else if (deepLinks.metaDetailsStreams) {
+                navigate(toPath(deepLinks.metaDetailsStreams), { replace: true });
+            }
+        }
+    }, []);
+
+    const onEnded = React.useCallback(() => {
+        ended();
+        if (player.nextVideo !== null) {
+            nextVideo();
+
+            const deepLinks = player.nextVideo.deepLinks;
+            handleNextVideoNavigation(deepLinks, profile.settings.bingeWatching, true);
+        } else {
+            navigate(-1);
+        }
+    }, [player.nextVideo, profile.settings.bingeWatching, handleNextVideoNavigation]);
+
+    const onError = React.useCallback((error) => {
+        console.error('Player', error);
+        if (error.critical) {
+            setError(error);
+        } else {
+            toast.show({
+                type: 'error',
+                title: t('ERROR'),
+                message: error.message,
+                timeout: 3000
+            });
+        }
+    }, []);
+
+    const onPlayRequested = React.useCallback(() => {
+        playingOnExternalDevice.current = false;
+        video.setPaused(false);
+        setSeeking(false);
+    }, []);
+
+    const onPlayRequestedDebounced = React.useCallback(debounce(onPlayRequested, 200), []);
+
+    const onPauseRequested = React.useCallback(() => {
+        video.setPaused(true);
+    }, []);
+
+    const onPauseRequestedDebounced = React.useCallback(debounce(onPauseRequested, 200), []);
+    const onMuteRequested = React.useCallback(() => {
+        video.setMuted(true);
+    }, []);
+
+    const onUnmuteRequested = React.useCallback(() => {
+        video.setMuted(false);
+    }, []);
+
+    const onVolumeChangeRequested = React.useCallback((volume) => {
+        video.setVolume(volume);
+    }, []);
+
+    const commitSeek = React.useCallback((time) => {
+        video.setTime(time);
+        seek(time, video.state.duration, video.state.manifest?.name);
+    }, [video.state.duration, video.state.manifest]);
+
+    const {
+        time: keyboardSeekTime,
+        seekBy: seekByKeyboard,
+        seekTo: onSeekRequested,
+        cancel: cancelKeyboardSeek,
+        flush: flushKeyboardSeek,
+        release: releaseKeyboardSeek,
+    } = useKeyboardSeek({
+        time: video.state.time,
+        duration: video.state.duration,
+        onSeek: commitSeek,
+        setSeeking,
+    });
+
+    const onKeyboardSeekRequested = React.useCallback((offset) => {
+        setImmersedDebounced.cancel();
+        setImmersed(false);
+        seekByKeyboard(offset);
+    }, [seekByKeyboard]);
+
+    const overlayHidden = React.useMemo(() => {
+        return keyboardSeekTime === null && immersed && !casting && video.state.paused !== null && !video.state.paused && !menusOpen;
+    }, [keyboardSeekTime, immersed, casting, video.state.paused, menusOpen]);
+
+    React.useEffect(() => {
+        if (!video.state.manifest?.props.includes('subtitlesOffsetMinimum')) {
+            return;
+        }
+
+        const videoContainerElement = video.containerRef.current;
+        const controlBarElement = controlBarRef.current;
+        if (!videoContainerElement || !controlBarElement) {
+            return;
+        }
+
+        const updateSubtitlesOffsetMinimum = () => {
+            const videoHeight = videoContainerElement.getBoundingClientRect().height;
+            const controlBarHeight = overlayHidden ? 0 : controlBarElement.getBoundingClientRect().height;
+            const offsetMinimum = videoHeight > 0 ? Math.ceil(controlBarHeight / videoHeight * 100) : 0;
+            video.setSubtitlesOffsetMinimum(offsetMinimum);
+        };
+
+        updateSubtitlesOffsetMinimum();
+
+        if (typeof ResizeObserver === 'undefined') {
+            window.addEventListener('resize', updateSubtitlesOffsetMinimum);
+            return () => window.removeEventListener('resize', updateSubtitlesOffsetMinimum);
+        }
+
+        const resizeObserver = new ResizeObserver(updateSubtitlesOffsetMinimum);
+        resizeObserver.observe(videoContainerElement);
+        resizeObserver.observe(controlBarElement);
+        return () => resizeObserver.disconnect();
+    }, [overlayHidden, video.state.manifest, video.setSubtitlesOffsetMinimum]);
+
+    const onPlaybackSpeedChanged = React.useCallback((rate, skipUpdate) => {
+        video.setPlaybackSpeed(rate);
+        if (skipUpdate) return;
+        playbackSpeed.current = rate;
+    }, []);
+
+    const onVideoScaleChanged = React.useCallback(() => {
+        const currentScale = video.state.videoScale || 'contain';
+        const currentIndex = VIDEO_SCALES.indexOf(currentScale);
+        const nextScale = VIDEO_SCALES[(currentIndex + 1) % VIDEO_SCALES.length];
+        video.setVideoScale(nextScale);
+    }, [video.state.videoScale]);
+
+    const onAudioTrackSelected = React.useCallback((id) => {
+        video.setAudioTrack(id);
+        streamStateChanged({
+            audioTrack: {
+                id,
+            },
+        });
+    }, [streamStateChanged]);
+
+    const onDismissNextVideoPopup = React.useCallback(() => {
+        closeNextVideoPopup();
+        nextVideoPopupDismissed.current = true;
+    }, []);
+
+    const onNextVideoRequested = React.useCallback(() => {
+        if (player.nextVideo !== null) {
+            cancelKeyboardSeek();
+            nextVideo();
+
+            const deepLinks = player.nextVideo.deepLinks;
+            handleNextVideoNavigation(deepLinks, profile.settings.bingeWatching, false);
+        }
+    }, [player.nextVideo, handleNextVideoNavigation, profile.settings, cancelKeyboardSeek]);
+
+    const onVideoClick = React.useCallback(() => {
+        if (video.state.paused !== null && !longPress.current) {
+            if (video.state.paused) {
+                onPlayRequestedDebounced();
+            } else {
+                onPauseRequestedDebounced();
+            }
+        }
+    }, [video.state.paused, longPress.current]);
+
+    const onVideoDoubleClick = React.useCallback(() => {
+        onPlayRequestedDebounced.cancel();
+        onPauseRequestedDebounced.cancel();
+        toggleFullscreen();
+    }, [toggleFullscreen]);
+
+    const onContainerMouseDown = React.useCallback((event) => {
+        if (!event.nativeEvent.optionsMenuClosePrevented) {
+            closeOptionsMenu();
+        }
+        if (!event.nativeEvent.subtitlesMenuClosePrevented) {
+            closeSubtitlesMenu();
+        }
+        if (!event.nativeEvent.audioMenuClosePrevented) {
+            closeAudioMenu();
+        }
+        if (!event.nativeEvent.speedMenuClosePrevented) {
+            closeSpeedMenu();
+        }
+        if (!event.nativeEvent.statisticsMenuClosePrevented) {
+            closeStatisticsMenu();
+        }
+        if (!event.nativeEvent.castDevicesMenuClosePrevented) {
+            closeCastDevicesMenu();
+        }
+
+        closeSideDrawer();
+    }, []);
+
+    const onContainerMouseMove = React.useCallback((event) => {
+        setImmersed(false);
+        if (!event.nativeEvent.immersePrevented) {
+            setImmersedDebounced(true);
+        } else {
+            setImmersedDebounced.cancel();
+        }
+    }, []);
+
+    const onContainerMouseLeave = React.useCallback(() => {
+        setImmersedDebounced.cancel();
+        setImmersed(true);
+    }, []);
+
+    const onBarMouseMove = React.useCallback((event) => {
+        event.nativeEvent.immersePrevented = true;
+    }, []);
+
+    const onPlayPause = React.useCallback(() => {
+        if (!menusOpen && !nextVideoPopupOpen && video.state.paused !== null) {
+            if (video.state.paused) {
+                onPlayRequested();
+                setSeeking(false);
+            } else {
+                onPauseRequested();
+            }
+        }
+    }, [menusOpen, nextVideoPopupOpen, video.state.paused]);
+
+    const onSeekPrev = React.useCallback((event) => {
+        if (!menusOpen && !nextVideoPopupOpen && video.state.time !== null) {
+            const seekDuration = event?.shiftKey ? settings.seekShortTimeDuration : settings.seekTimeDuration;
+            const seekTime = video.state.time - seekDuration;
+            setSeeking(true);
+            onSeekRequested(Math.max(seekTime, 0));
+        }
+    }, [menusOpen, nextVideoPopupOpen, video.state.time]);
+
+    const onSeekNext = React.useCallback((event) => {
+        if (!menusOpen && !nextVideoPopupOpen && video.state.time !== null) {
+            const seekDuration = event?.shiftKey ? settings.seekShortTimeDuration : settings.seekTimeDuration;
+            setSeeking(true);
+            onSeekRequested(video.state.time + seekDuration);
+        }
+    }, [menusOpen, nextVideoPopupOpen, video.state.time]);
+
+    const onVolumeUp = React.useCallback(() => {
+        if (!menusOpen && !nextVideoPopupOpen && video.state.volume !== null) {
+            onVolumeChangeRequested(Math.min(video.state.volume + 5, 200));
+        }
+    }, [menusOpen, nextVideoPopupOpen, video.state.volume]);
+
+    const onVolumeDown = React.useCallback(() => {
+        if (!menusOpen && !nextVideoPopupOpen && video.state.volume !== null) {
+            onVolumeChangeRequested(Math.max(video.state.volume - 5, 0));
+        }
+    }, [menusOpen, nextVideoPopupOpen, video.state.volume]);
+
+    const onGamepadSeekAndVol = React.useCallback((axis) => {
+        switch(axis) {
+            case 'left': {
+                onSeekPrev();
+                break;
+            }
+            case 'right': {
+                onSeekNext();
+                break;
+            }
+            case 'up': {
+                onVolumeUp();
+                break;
+            }
+            case 'down': {
+                onVolumeDown();
+                break;
+            }
+        }
+    }, [onSeekPrev, onSeekNext, onVolumeUp, onVolumeDown]);
+
+    useContentGamepadNavigation(playerRef, GAMEPAD_HANDLER_ID);
+
+    React.useEffect(() => {
+        gamepad?.on('buttonX', GAMEPAD_HANDLER_ID, onPlayPause);
+        gamepad?.on('analogRight', GAMEPAD_HANDLER_ID, onGamepadSeekAndVol);
+
         return () => {
-            window.removeEventListener('mousemove', onMove);
+            gamepad?.off('buttonX', GAMEPAD_HANDLER_ID);
+            gamepad?.off('analogRight', GAMEPAD_HANDLER_ID);
+        };
+    }, [onPlayPause, onGamepadSeekAndVol]);
+
+    // Video stream loading logic (Stremio stream OR direct HTTP/HTTPS stream)
+    React.useEffect(() => {
+        setError(null);
+        cancelKeyboardSeek();
+        video.unload();
+
+        if (isViduki) return;
+
+        // For direct URLs in HTML5 mode, load via the Stremio video engine
+        if (directUrl && !useIframePlayer) {
+            const isHls = directUrl.includes('.m3u8') || directUrl.includes('/hls/');
+            video.load({
+                stream: {
+                    url: directUrl,
+                    title: 'Direct Stream',
+                    behaviorHints: isHls ? {
+                        proxyHeaders: {
+                            response: { 'content-type': 'application/vnd.apple.mpegurl' }
+                        }
+                    } : undefined
+                },
+                subtitles: [],
+                autoplay: true,
+                streamingServerURL: streamingServer.baseUrl && streamingServer.selected?.transportUrl ? streamingServer.selected.transportUrl : null,
+            });
+            return;
+        }
+
+        if (player.selected && player.stream?.type === 'Ready' && streamingServer.settings?.type !== 'Loading') {
+            const streamContent = player.stream.content;
+            const streamUrl = streamContent?.url || '';
+            const isHls = streamUrl.includes('.m3u8') || streamUrl.includes('/hls/');
+
+            video.load({
+                stream: {
+                    ...streamContent,
+                    behaviorHints: isHls ? {
+                        ...streamContent?.behaviorHints,
+                        proxyHeaders: {
+                            ...streamContent?.behaviorHints?.proxyHeaders,
+                            response: {
+                                'content-type': 'application/vnd.apple.mpegurl',
+                                ...streamContent?.behaviorHints?.proxyHeaders?.response,
+                            }
+                        }
+                    } : streamContent?.behaviorHints,
+                    subtitles: streamSubtitles
+                },
+                autoplay: true,
+                time: player.libraryItem !== null &&
+                    player.selected.streamRequest !== null &&
+                    player.selected.streamRequest.path !== null &&
+                    player.libraryItem.state.video_id === player.selected.streamRequest.path.id ?
+                    player.libraryItem.state.timeOffset
+                    :
+                    0,
+                forceTranscoding: forceTranscoding || casting,
+                maxAudioChannels: settings.surroundSound ? 32 : 2,
+                hardwareDecoding: settings.hardwareDecoding,
+                assSubtitlesStyling: settings.assSubtitlesStyling,
+                gpuVideoProcessing: settings.gpuVideoProcessing && platform.shell.capabilities.gpuVideoProcessing,
+                videoMode: settings.videoMode,
+                platform: platform.name,
+                streamingServerURL: streamingServer.baseUrl ?
+                    casting ?
+                        streamingServer.baseUrl
+                        :
+                        (streamingServer.selected?.transportUrl || null)
+                    :
+                    null,
+                seriesInfo: player.seriesInfo,
+            }, {
+                chromecastTransport: services.chromecast.active ? services.chromecast.transport : null,
+                shellTransport: platform.shell.active ? platform.shell : null,
+            });
+        }
+    }, [streamingServer.baseUrl, player.selected, player.stream, streamSubtitles, forceTranscoding, casting, cancelKeyboardSeek, isViduki, directUrl, useIframePlayer]);
+
+    React.useEffect(() => {
+        !seeking && timeChanged(video.state.time, video.state.duration, video.state.manifest?.name);
+    }, [video.state.time, video.state.duration, video.state.manifest, seeking]);
+
+    React.useEffect(() => {
+        if (playingOnExternalDevice.current && video.state.paused === false) {
+            onPauseRequested();
+        } else if (video.state.paused !== null) {
+            pausedChanged(video.state.paused);
+        }
+    }, [video.state.paused]);
+
+    React.useEffect(() => {
+        videoParamsChanged(video.state.videoParams);
+    }, [video.state.videoParams]);
+
+    React.useEffect(() => {
+        if (player.nextVideo !== null && !nextVideoPopupDismissed.current) {
+            if (video.state.time !== null && video.state.duration !== null && video.state.time < video.state.duration && (video.state.duration - video.state.time) <= settings.nextVideoNotificationDuration) {
+                openNextVideoPopup();
+            } else {
+                closeNextVideoPopup();
+            }
+        }
+    }, [player.nextVideo, video.state.time, video.state.duration]);
+
+    // Auto audio track selection
+    React.useEffect(() => {
+        if (!defaultAudioTrackSelected.current) {
+            const savedTrackId = player.streamState?.audioTrack?.id;
+            const savedTrack = savedTrackId ? findTrackById(video.state.audioTracks, savedTrackId) : null;
+            const audioTrack = savedTrack ?? findTrackByLang(video.state.audioTracks, settings.audioLanguage);
+
+            if (audioTrack && audioTrack.id) {
+                video.setAudioTrack(audioTrack.id);
+                defaultAudioTrackSelected.current = true;
+            }
+        }
+    }, [video.state.audioTracks, player.streamState]);
+
+    React.useEffect(() => {
+        defaultAudioTrackSelected.current = false;
+        nextVideoPopupDismissed.current = false;
+        playingOnExternalDevice.current = false;
+    }, [video.state.stream]);
+
+    React.useEffect(() => {
+        if (!Array.isArray(video.state.audioTracks) || video.state.audioTracks.length === 0) {
+            closeAudioMenu();
+        }
+    }, [video.state.audioTracks]);
+
+    React.useEffect(() => {
+        if (video.state.playbackSpeed === null) {
+            closeSpeedMenu();
+        }
+    }, [video.state.playbackSpeed]);
+
+    React.useEffect(() => {
+        const toastFilter = (item) => item?.dataset?.type === 'CoreEvent';
+        toast.addFilter(toastFilter);
+        const onCastStateChange = () => {
+            setCasting(services.chromecast.active && services.chromecast.transport.getCastState() === cast.framework.CastState.CONNECTED);
+        };
+        const onChromecastServiceStateChange = () => {
+            onCastStateChange();
+            if (services.chromecast.active) {
+                services.chromecast.transport.on(
+                    cast.framework.CastContextEventType.CAST_STATE_CHANGED,
+                    onCastStateChange
+                );
+            }
+        };
+        const onCoreEvent = (name) => {
+            if (name === 'PlayingOnDevice') {
+                playingOnExternalDevice.current = true;
+                onPauseRequested();
+            }
+        };
+        services.chromecast.on('stateChanged', onChromecastServiceStateChange);
+        core.on('event', onCoreEvent);
+        onChromecastServiceStateChange();
+        return () => {
+            toast.removeFilter(toastFilter);
+            services.chromecast.off('stateChanged', onChromecastServiceStateChange);
+            core.off('event', onCoreEvent);
+            if (services.chromecast.active) {
+                services.chromecast.transport.off(
+                    cast.framework.CastContextEventType.CAST_STATE_CHANGED,
+                    onCastStateChange
+                );
+            }
+        };
+    }, []);
+
+    React.useEffect(() => {
+        if (settings.pauseOnMinimize && (platform.shell.state.windowClosed || platform.shell.state.windowHidden)) {
+            onPauseRequested();
+        }
+    }, [settings.pauseOnMinimize, platform.shell.state.windowClosed, platform.shell.state.windowHidden]);
+
+    React.useEffect(() => {
+        if (video.state.stream === null || typeof player?.title !== 'string') {
+            discordTimestamps.current = EMPTY_DISCORD_TIMESTAMPS;
+            discord.setActivity(null);
+            return;
+        }
+
+        const metaItem = player.metaItem?.type === 'Ready' ? player.metaItem.content : null;
+        const { activity, timestamps } = getPlaybackDiscordActivity({
+            title: player.title,
+            image: metaItem?.poster || metaItem?.background || null,
+            paused: video.state.paused,
+            time: video.state.time,
+            duration: video.state.duration,
+            timestamps: discordTimestamps.current,
+        });
+
+        discordTimestamps.current = timestamps;
+        discord.setActivity(activity);
+    }, [discord.setActivity, player?.title, player.metaItem, video.state.duration, video.state.paused, video.state.stream, video.state.time]);
+
+    React.useEffect(() => {
+        return () => {
+            discord.setActivity(null);
+        };
+    }, [discord.setActivity]);
+
+    useMediaSession(video.state, player, fullscreen, onPlayRequested, onPauseRequested, onNextVideoRequested);
+
+    React.useEffect(() => {
+        const onMediaKey = (action) => {
+            switch (action) {
+                case 'play-pause':
+                    if (video.state.paused !== null) {
+                        video.state.paused ? onPlayRequested() : onPauseRequested();
+                    }
+                    break;
+                case 'play':
+                    onPlayRequested();
+                    break;
+                case 'pause':
+                    onPauseRequested();
+                    break;
+                case 'next-track':
+                    if (player.nextVideo !== null) {
+                        video.setTime(0);
+                        onNextVideoRequested();
+                    }
+                    break;
+            }
+        };
+        platform.shell.on('media-key', onMediaKey);
+        return () => platform.shell.off('media-key', onMediaKey);
+    }, [video.state.paused, player.nextVideo, onPlayRequested, onPauseRequested, onNextVideoRequested]);
+
+    onShortcut('seekForward', (combo) => {
+        const seekDuration = combo === 1 ? settings.seekShortTimeDuration : settings.seekTimeDuration;
+        onKeyboardSeekRequested(seekDuration);
+    }, [settings.seekShortTimeDuration, settings.seekTimeDuration, onKeyboardSeekRequested], !menusOpen);
+
+    onShortcut('seekBackward', (combo) => {
+        const seekDuration = combo === 1 ? settings.seekShortTimeDuration : settings.seekTimeDuration;
+        onKeyboardSeekRequested(-seekDuration);
+    }, [settings.seekShortTimeDuration, settings.seekTimeDuration, onKeyboardSeekRequested], !menusOpen);
+
+    onShortcut('mute', () => {
+        video.state.muted === true ? onUnmuteRequested() : onMuteRequested();
+    }, [video.state.muted], !menusOpen);
+
+    onShortcut('volume', (combo) => {
+        if (video.state.volume !== null) {
+            const volume = combo === 0 ? Math.min(video.state.volume + 5, 200) : Math.max(video.state.volume - 5, 0);
+            onVolumeChangeRequested(volume);
+        }
+    }, [video.state.volume], !menusOpen);
+
+    onShortcut('audioMenu', () => {
+        closeMenus();
+        if (video.state?.audioTracks?.length > 0) {
+            toggleAudioMenu();
+        }
+    }, [video.state.audioTracks, toggleAudioMenu]);
+
+    onShortcut('infoMenu', () => {
+        closeMenus();
+        if (player.metaItem?.type === 'Ready') {
+            toggleSideDrawer();
+        }
+    }, [player.metaItem, toggleSideDrawer]);
+
+    onShortcut('speedMenu', () => {
+        closeMenus();
+        if (video.state.playbackSpeed !== null) {
+            toggleSpeedMenu();
+        }
+    }, [video.state.playbackSpeed, toggleSpeedMenu]);
+
+    onShortcut('speed', (combo) => {
+        if (video.state.playbackSpeed !== null) {
+            const speed = combo === 0 ? Math.max(video.state.playbackSpeed - 0.25, 0.25) : Math.min(video.state.playbackSpeed + 0.25, 2);
+            onPlaybackSpeedChanged(speed);
+        }
+    }, [video.state.playbackSpeed, onPlaybackSpeedChanged], !menusOpen);
+
+    const selectedStream = player.selected?.stream;
+    const statisticsMenuAvailable = streamingServer?.statistics?.type !== 'Err'
+        && typeof selectedStream?.infoHash === 'string'
+        && typeof selectedStream?.fileIdx === 'number';
+
+    const finishDetailsHold = React.useCallback(() => {
+        const hold = detailsHold.current;
+        if (hold === null) return null;
+
+        detailsHold.current = null;
+        if (hold.phase === 'pending') {
+            clearTimeout(hold.timer);
+        } else {
+            closeStatisticsMenu();
+        }
+        return hold.phase;
+    }, [closeStatisticsMenu]);
+
+    const releaseDetailsHold = React.useCallback(() => {
+        if (finishDetailsHold() !== 'pending') return;
+
+        closeMenus();
+        if (statisticsMenuAvailable) {
+            toggleStatisticsMenu();
+        }
+    }, [finishDetailsHold, closeMenus, statisticsMenuAvailable, toggleStatisticsMenu]);
+
+    onShortcut('statisticsMenu', () => {
+        if (detailsHold.current !== null || pressTimer.current !== null) return;
+
+        const hold = { phase: 'pending', timer: null };
+        hold.timer = setTimeout(() => {
+            hold.phase = 'held';
+            hold.timer = null;
+            if (statisticsMenuAvailable) {
+                closeMenus();
+                openStatisticsMenu();
+            }
+        }, HOLD_DELAY);
+        detailsHold.current = hold;
+    }, [statisticsMenuAvailable, closeMenus, openStatisticsMenu], routeFocused);
+
+    onShortcut('playNext', () => {
+        closeMenus();
+        if (player.nextVideo !== null) {
+            nextVideo();
+            const deepLinks = player.nextVideo.deepLinks;
+            handleNextVideoNavigation(deepLinks, false, false);
+        }
+    }, [player.nextVideo, handleNextVideoNavigation]);
+
+    onShortcut('exit', () => {
+        closeMenus();
+        !settings.escExitFullscreen && navigate(-1);
+    }, [settings.escExitFullscreen]);
+
+    React.useLayoutEffect(() => {
+        if (!routeFocused) {
+            finishDetailsHold();
+        }
+
+        if (menusOpen) {
+            clearTimeout(pressTimer.current);
+            pressTimer.current = null;
+            longPress.current = false;
+        }
+
+        const onKeyDown = (e) => {
+            const keyboardKey = getKeyboardShortcutKey(e);
+            if (keyboardKey !== 'Space' || e.repeat) return;
+            if (menusOpen || detailsHold.current !== null || e.ctrlKey || e.metaKey || e.altKey) return;
+
+            longPress.current = false;
+
+            pressTimer.current = setTimeout(() => {
+                longPress.current = true;
+                onPlaybackSpeedChanged(2, true);
+            }, HOLD_DELAY);
+        };
+
+        const onKeyUp = (e) => {
+            const keyboardKeys = getKeyboardShortcutKeys(e);
+
+            if (keyboardKeys.includes('KeyD') || keyboardKeys.includes('D')) {
+                releaseDetailsHold();
+                return;
+            }
+
+            if (!keyboardKeys.includes('Space') && !keyboardKeys.includes('ArrowRight') && !keyboardKeys.includes('ArrowLeft')) return;
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+            if (keyboardKeys.includes('ArrowRight') || keyboardKeys.includes('ArrowLeft')) {
+                releaseKeyboardSeek();
+                setImmersed(false);
+                setImmersedDebounced(true);
+                return;
+            }
+            if (keyboardKeys.includes('Space')) {
+                clearTimeout(pressTimer.current);
+                pressTimer.current = null;
+                if (longPress.current) {
+                    onPlaybackSpeedChanged(playbackSpeed.current);
+                } else if (!menusOpen && video.state.paused !== null) {
+                    if (video.state.paused) {
+                        onPlayRequested();
+                        setSeeking(false);
+                    } else {
+                        onPauseRequested();
+                    }
+                }
+                longPress.current = false;
+            }
+        };
+
+        const onWheel = ({ deltaY }) => {
+            if (menusOpen || video.state.volume === null) return;
+
+            if (deltaY > 0) {
+                onVolumeChangeRequested(Math.max(video.state.volume - 5, 0));
+            } else {
+                if (video.state.volume < 100) {
+                    onVolumeChangeRequested(Math.min(video.state.volume + 5, 100));
+                }
+            }
+        };
+
+        const onMouseDownHold = (e) => {
+            if (e.button !== 0) return;
+            if (menusOpen || detailsHold.current !== null) return;
+            if (controlBarRef.current && controlBarRef.current.contains(e.target)) return;
+
+            longPress.current = false;
+
+            pressTimer.current = setTimeout(() => {
+                longPress.current = true;
+                onPlaybackSpeedChanged(2, true);
+            }, HOLD_DELAY);
+        };
+
+        const onMouseUp = (e) => {
+            if (e.button !== 0) return;
+
+            clearTimeout(pressTimer.current);
+            pressTimer.current = null;
+
+            if (longPress.current) {
+                onPlaybackSpeedChanged(playbackSpeed.current);
+            }
+        };
+
+        const onBlur = () => {
+            clearTimeout(pressTimer.current);
+            pressTimer.current = null;
+            if (longPress.current) {
+                onPlaybackSpeedChanged(playbackSpeed.current);
+                longPress.current = false;
+            }
+            finishDetailsHold();
+            flushKeyboardSeek();
+            setImmersed(false);
+            setImmersedDebounced(true);
+        };
+
+        if (routeFocused) {
+            window.addEventListener('keyup', onKeyUp);
+            window.addEventListener('keydown', onKeyDown);
+            window.addEventListener('wheel', onWheel);
+            window.addEventListener('mousedown', onMouseDownHold);
+            window.addEventListener('mouseup', onMouseUp);
+            window.addEventListener('blur', onBlur);
+        } else {
+            cancelKeyboardSeek();
+        }
+        return () => {
+            window.removeEventListener('keyup', onKeyUp);
+            window.removeEventListener('keydown', onKeyDown);
+            window.removeEventListener('wheel', onWheel);
+            window.removeEventListener('mousedown', onMouseDownHold);
+            window.removeEventListener('mouseup', onMouseUp);
             window.removeEventListener('blur', onBlur);
         };
-    }, [showOverlay]);
+    }, [routeFocused, menusOpen, video.state.volume, video.state.paused, finishDetailsHold, releaseDetailsHold, cancelKeyboardSeek, flushKeyboardSeek, releaseKeyboardSeek]);
 
     React.useEffect(() => {
-        const handleMessage = (event) => {
-            if (event.data?.type === 'viduki:all-servers-failed') {
-                const nextApi = getNextFallbackApi(currentApi);
-                if (nextApi) {
-                    setCurrentApi(nextApi);
-                } else {
-                    setAllFailed(true);
-                }
-            }
-            if (event.data?.type === 'MEDIA_DATA') {
-                try {
-                    const mediaData = event.data.data;
-                    if (mediaData) {
-                        const existing = JSON.parse(localStorage.getItem('vidukinet-Progress') || '{}');
-                        localStorage.setItem('vidukinet-Progress', JSON.stringify({ ...existing, ...mediaData }));
-                    }
-                } catch (err) {
-                    console.error('Viduki progress error:', err);
-                }
-            }
+        video.events.on('error', onError);
+        video.events.on('ended', onEnded);
+
+        return () => {
+            video.events.off('error', onError);
+            video.events.off('ended', onEnded);
         };
-        window.addEventListener('message', handleMessage);
-        return () => window.removeEventListener('message', handleMessage);
-    }, [currentApi, isViduki]);
+    }, [onEnded]);
 
-    const handleBack = React.useCallback(() => navigate(-1), [navigate]);
-
-    const handleSelectApi = React.useCallback((apiId) => {
-        setAllFailed(false);
-        setCurrentApi(apiId);
-        showOverlay();
-    }, [showOverlay]);
-
-    const handleRetry = React.useCallback(() => {
-        setAllFailed(false);
-        setCurrentApi(1);
+    React.useLayoutEffect(() => {
+        return () => {
+            clearTimeout(detailsHold.current?.timer);
+            setImmersedDebounced.cancel();
+            onPlayRequestedDebounced.cancel();
+            onPauseRequestedDebounced.cancel();
+        };
     }, []);
 
+    const isDirectStream = Boolean(directUrl);
+
     return (
-        <div
-            ref={containerRef}
-            className={`${styles['player-container']}${overlayVisible ? '' : ` ${styles['overlay-hidden']}`}`}
-        >
-            <div className={styles['gradient-top']} />
+        <div ref={playerRef} className={classnames(styles['player-container'], { [styles['overlayHidden']]: overlayHidden })}
+            onMouseDown={onContainerMouseDown}
+            onMouseMove={onContainerMouseMove}
+            onMouseOver={onContainerMouseMove}
+            onMouseLeave={onContainerMouseLeave}>
 
-            <div className={styles['overlay-bar']}>
-                <button className={styles['back-pill-btn']} onClick={handleBack} title="Back" aria-label="Back">
-                    {ICONS.back}
-                    <span className={styles['back-btn-text']}>Back</span>
-                </button>
-
-                <div className={styles['bar-spacer']} />
-
-                <div className={styles['right-controls']}>
-                    {isViduki && VIDUKI_APIS.map((api) => {
-                        const active = currentApi === api.id;
-                        const label = API_LABELS[api.id];
-                        return (
-                            <button
-                                key={api.id}
-                                className={`${styles['server-pill']}${active ? ` ${styles['server-pill-active']}` : ''}`}
-                                title={label.full}
-                                onClick={() => handleSelectApi(api.id)}
-                            >
-                                {active && <span className={styles['pill-badge']}>{label.badge}</span>}
-                                <span className={styles['pill-text']}>{label.full}</span>
+            {isViduki ? (
+                allFailed ? (
+                    <div className={styles['state-screen']}>
+                        <div className={styles['state-glow']} />
+                        <div className={styles['state-icon']}>⚠</div>
+                        <div className={styles['state-title']}>All Servers Unavailable</div>
+                        <div className={styles['state-msg']}>No stream was found across all Viduki servers for this title. Try playing via Torrent Player below.</div>
+                        <div className={styles['state-actions']}>
+                            <button className={styles['btn-primary']} style={{ background: '#fcf007', color: '#000' }} onClick={() => window.dispatchEvent(new CustomEvent('open-webtor-player'))}>
+                                ⚡ Stream with Torrent Player
                             </button>
-                        );
-                    })}
-
-                    {isViduki && (
-                        <button
-                            className={styles['server-pill']}
-                            style={{ background: 'rgba(252, 240, 7, 0.15)', borderColor: 'rgba(252, 240, 7, 0.5)', color: '#fcf007' }}
-                            title="Open Torrent Player"
-                            onClick={() => window.dispatchEvent(new CustomEvent('open-webtor-player'))}
-                        >
-                            <span className={styles['pill-badge']} style={{ background: '#fcf007', color: '#000' }}>P2P</span>
-                            <span className={styles['pill-text']}>⚡ Torrent Player</span>
-                        </button>
-                    )}
-
-                    <div className={styles['divider']} />
-
-                    <button className={styles['icon-btn']} onClick={toggleFullscreen} title="Toggle fullscreen" aria-label="Toggle fullscreen">
-                        {fullscreen ? ICONS.fsExit : ICONS.fsEnter}
-                    </button>
-                </div>
-            </div>
-
-            <div className={styles['player-body']}>
-                {isViduki ? (
-                    allFailed ? (
-                        <div className={styles['state-screen']}>
-                            <div className={styles['state-glow']} />
-                            <div className={styles['state-icon']}>⚠</div>
-                            <div className={styles['state-title']}>All Servers Unavailable</div>
-                            <div className={styles['state-msg']}>No stream was found across all Viduki servers for this title. Try playing via Torrent Player below.</div>
-                            <div className={styles['state-actions']}>
-                                <button className={styles['btn-primary']} style={{ background: '#fcf007', color: '#000' }} onClick={() => window.dispatchEvent(new CustomEvent('open-webtor-player'))}>
-                                    ⚡ Stream with Torrent Player
-                                </button>
-                                <button className={styles['btn-secondary']} onClick={handleRetry}>Try Again</button>
-                                <button className={styles['btn-secondary']} onClick={handleBack}>Go Back</button>
-                            </div>
+                            <button className={styles['btn-secondary']} onClick={() => setCurrentApi(1)}>Try Again</button>
+                            <button className={styles['btn-secondary']} onClick={() => navigate(-1)}>Go Back</button>
                         </div>
-                    ) : !iframeUrl ? (
-                        <div className={styles['state-screen']}>
-                            <div className={styles['state-glow']} />
-                            <div className={styles['state-icon']}>✕</div>
-                            <div className={styles['state-title']}>Invalid Media</div>
-                            <div className={styles['state-msg']}>A valid TMDB or IMDB ID is required for playback.</div>
-                            <div className={styles['state-actions']}>
-                                <button className={styles['btn-secondary']} onClick={handleBack}>Go Back</button>
-                            </div>
-                        </div>
-                    ) : (
-                        <iframe
-                            key={iframeUrl}
-                            className={styles['player-iframe']}
-                            src={iframeUrl}
-                            title="Viduki Player"
-                            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-                            allowFullScreen
-                            referrerPolicy="no-referrer"
-                        />
-                    )
-                ) : addonUrl || isTorrentAddon ? (
-                    <Video className={styles['video']} ref={video.containerRef} />
-                ) : (
+                    </div>
+                ) : !iframeUrl ? (
                     <div className={styles['state-screen']}>
                         <div className={styles['state-glow']} />
                         <div className={styles['state-icon']}>✕</div>
                         <div className={styles['state-title']}>Invalid Media</div>
-                        <div className={styles['state-msg']}>No playable stream was found for this media.</div>
+                        <div className={styles['state-msg']}>A valid TMDB or IMDB ID is required for playback.</div>
                         <div className={styles['state-actions']}>
-                            <button className={styles['btn-secondary']} onClick={handleBack}>Go Back</button>
+                            <button className={styles['btn-secondary']} onClick={() => navigate(-1)}>Go Back</button>
                         </div>
                     </div>
-                )}
-
-                {!isViduki && (addonUrl || isTorrentAddon) && (
-                    <div
-                        className={styles['iframe-cover']}
-                        onMouseMove={showOverlay}
-                        onClick={showOverlay}
+                ) : (
+                    <iframe
+                        key={iframeUrl}
+                        className={styles['player-iframe']}
+                        src={iframeUrl}
+                        title="Viduki Player"
+                        allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                        allowFullScreen
+                        referrerPolicy="no-referrer"
                     />
-                )}
-            </div>
+                )
+            ) : useIframePlayer && directUrl ? (
+                <iframe
+                    key={directUrl}
+                    className={styles['player-iframe']}
+                    src={directUrl}
+                    title="Direct Stream Player"
+                    allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    referrerPolicy="no-referrer"
+                />
+            ) : directUrl ? (
+                <DirectVideoPlayer
+                    key={directUrl}
+                    src={directUrl}
+                    className={styles['layer']}
+                    onClick={onVideoClick}
+                    onDoubleClick={onVideoDoubleClick}
+                />
+            ) : (
+                <Video
+                    ref={video.containerRef}
+                    className={styles['layer']}
+                    onClick={onVideoClick}
+                    onDoubleClick={onVideoDoubleClick}
+                />
+            )}
+
+            {
+                !isViduki && !useIframePlayer && !directUrl && !video.state.loaded ?
+                    <div className={classnames(styles['layer'], styles['background-layer'])}>
+                        <img className={styles['image']} src={player?.metaItem?.content?.background} />
+                    </div>
+                    :
+                    null
+            }
+            {
+                !isViduki && !useIframePlayer && !directUrl && (video.state.buffering || !video.state.loaded) && !error ?
+                    <Buffering
+                        ref={bufferingRef}
+                        className={classnames(styles['layer'], styles['buffering-layer'])}
+                        logo={player?.metaItem?.content?.logo}
+                        progress={statistics.progress}
+                    />
+                    :
+                    null
+            }
+            {
+                !isViduki && !useIframePlayer && error !== null ?
+                    <Error
+                        ref={errorRef}
+                        className={classnames(styles['layer'], styles['error-layer'])}
+                        stream={video.state.stream}
+                        {...error}
+                    />
+                    :
+                    null
+            }
+            {
+                menusOpen ?
+                    <div className={styles['layer']} />
+                    :
+                    null
+            }
+            {
+                !isViduki && !useIframePlayer && video.state.volume !== null && overlayHidden ?
+                    <VolumeChangeIndicator
+                        muted={video.state.muted}
+                        volume={video.state.volume}
+                    />
+                    :
+                    null
+            }
+            {
+                !isViduki && !useIframePlayer && (
+                    <ContextMenu on={[video.containerRef, bufferingRef, errorRef]} autoClose>
+                        <OptionsMenu
+                            className={classnames(styles['layer'], styles['menu-layer'])}
+                            stream={player?.selected?.stream}
+                            playbackDevices={playbackDevices}
+                            extraSubtitlesTracks={extraSubtitleTracks}
+                            selectedExtraSubtitlesTrackId={selectedExtraSubtitleTrackId}
+                        />
+                    </ContextMenu>
+                )
+            }
+
+            <HorizontalNavBar
+                className={classnames(styles['layer'], styles['nav-bar-layer'])}
+                title={isDirectStream ? 'Direct Movie Stream' : player.title !== null ? player.title : ''}
+                backButton={true}
+                fullscreenButton={true}
+                hdrInfo={video.state.hdrInfo}
+                onMouseMove={onBarMouseMove}
+                onMouseOver={onBarMouseMove}
+            />
+
+            {
+                !isViduki && isDirectStream && (
+                    <div className={styles['direct-stream-controls']} style={{ position: 'absolute', top: 20, right: 80, zIndex: 1000, display: 'flex', gap: 10 }}>
+                        <button
+                            className={`${styles['server-pill'] || ''}`}
+                            style={{
+                                background: useIframePlayer ? '#fcf007' : 'rgba(255,255,255,0.15)',
+                                color: useIframePlayer ? '#000' : '#fff',
+                                padding: '6px 14px',
+                                borderRadius: '20px',
+                                border: '1px solid rgba(255,255,255,0.3)',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '13px'
+                            }}
+                            title="Toggle Direct Embed Mode"
+                            onClick={() => setUseIframePlayer((v) => !v)}
+                        >
+                            {useIframePlayer ? '📺 Direct Embed Mode' : '🎬 HTML5 Player Mode'}
+                        </button>
+                    </div>
+                )
+            }
+
+            {
+                player.metaItem?.type === 'Ready' ?
+                    <SideDrawerButton
+                        className={classnames(styles['layer'], styles['side-drawer-button-layer'])}
+                        onClick={toggleSideDrawer}
+                    />
+                    :
+                    null
+            }
+
+            {
+                !isViduki && !useIframePlayer && !directUrl && (
+                    <ControlBar
+                        ref={controlBarRef}
+                        className={classnames(styles['layer'], styles['control-bar-layer'])}
+                        paused={video.state.paused}
+                        time={keyboardSeekTime ?? video.state.time}
+                        duration={video.state.duration}
+                        buffered={video.state.buffered}
+                        volume={video.state.volume}
+                        muted={video.state.muted}
+                        playbackSpeed={video.state.playbackSpeed}
+                        subtitlesTracks={allSubtitleTracks}
+                        audioTracks={video.state.audioTracks}
+                        metaItem={player.metaItem}
+                        nextVideo={player.nextVideo}
+                        stream={player.selected !== null ? player.selected.stream : null}
+                        statistics={statistics}
+                        onPlayRequested={onPlayRequested}
+                        onPauseRequested={onPauseRequested}
+                        onNextVideoRequested={onNextVideoRequested}
+                        onMuteRequested={onMuteRequested}
+                        onUnmuteRequested={onUnmuteRequested}
+                        onVolumeChangeRequested={onVolumeChangeRequested}
+                        onSeekRequested={onSeekRequested}
+                        onToggleOptionsMenu={toggleOptionsMenu}
+                        shellCastSupported={shellCastSupported}
+                        onToggleCastDevicesMenu={toggleCastDevicesMenu}
+                        onToggleSubtitlesMenu={toggleSubtitlesMenu}
+                        onToggleAudioMenu={toggleAudioMenu}
+                        onToggleSpeedMenu={toggleSpeedMenu}
+                        videoScale={video.state.videoScale}
+                        videoScaleLabel={VIDEO_SCALE_LABELS[video.state.videoScale || 'contain']}
+                        onVideoScaleChanged={onVideoScaleChanged}
+                        onToggleStatisticsMenu={toggleStatisticsMenu}
+                        onToggleSideDrawer={toggleSideDrawer}
+                        onMouseMove={onBarMouseMove}
+                        onMouseOver={onBarMouseMove}
+                        onTouchEnd={onContainerMouseLeave}
+                    />
+                )
+            }
+
+            {
+                !isViduki && !useIframePlayer && !directUrl && (
+                    <Indicator
+                        className={classnames(styles['layer'], styles['indicator-layer'])}
+                        videoState={video.state}
+                        disabled={subtitlesMenuOpen}
+                    />
+                )
+            }
+
+            {
+                nextVideoPopupOpen ?
+                    <NextVideoPopup
+                        className={classnames(styles['layer'], styles['menu-layer'])}
+                        metaItem={player.metaItem !== null && player.metaItem.type === 'Ready' ? player.metaItem.content : null}
+                        nextVideo={player.nextVideo}
+                        onDismiss={onDismissNextVideoPopup}
+                        onNextVideoRequested={onNextVideoRequested}
+                    />
+                    :
+                    null
+            }
+
+            <Transition when={statisticsMenuOpen} name={'fade'}>
+                <StatisticsMenu
+                    className={classnames(styles['layer'], styles['menu-layer'])}
+                    {...statistics}
+                />
+            </Transition>
+            <Transition when={castDevicesMenuOpen} name={'fade'}>
+                <CastDevicesMenu
+                    className={classnames(styles['layer'], styles['menu-layer'])}
+                    devices={castDevices}
+                    loading={castDevicesLoading}
+                    onDeviceSelected={onCastDeviceSelected}
+                />
+            </Transition>
+            <Transition when={sideDrawerOpen} name={'slide-left'}>
+                <SideDrawer
+                    className={classnames(styles['layer'], styles['side-drawer-layer'])}
+                    metaItem={player.metaItem?.content}
+                    seriesInfo={player.seriesInfo}
+                    closeSideDrawer={closeSideDrawer}
+                    selected={player.selected?.streamRequest?.path?.id}
+                />
+            </Transition>
+            <Transition when={subtitlesMenuOpen} name={'fade'}>
+                <SubtitlesMenu
+                    className={classnames(styles['layer'], styles['menu-layer'])}
+                    {...subtitlesMenuProps}
+                />
+            </Transition>
+            <Transition when={audioMenuOpen} name={'fade'}>
+                <AudioMenu
+                    className={classnames(styles['layer'], styles['menu-layer'])}
+                    audioTracks={video.state.audioTracks}
+                    selectedAudioTrackId={video.state.selectedAudioTrackId}
+                    onAudioTrackSelected={onAudioTrackSelected}
+                />
+            </Transition>
+            <Transition when={speedMenuOpen} name={'fade'}>
+                <SpeedMenu
+                    className={classnames(styles['layer'], styles['menu-layer'])}
+                    playbackSpeed={video.state.playbackSpeed}
+                    onPlaybackSpeedChanged={onPlaybackSpeedChanged}
+                />
+            </Transition>
+            <Transition when={optionsMenuOpen} name={'fade'}>
+                <OptionsMenu
+                    className={classnames(styles['layer'], styles['menu-layer'])}
+                    stream={player.selected?.stream}
+                    playbackDevices={playbackDevices}
+                    extraSubtitlesTracks={extraSubtitleTracks}
+                    selectedExtraSubtitlesTrackId={selectedExtraSubtitleTrackId}
+                />
+            </Transition>
         </div>
     );
 };
 
 const PlayerFallback = () => (
-    <div className={styles['player-container']} />
+    <div className={classnames(styles['player-container'])} />
 );
 
 module.exports = withCoreSuspender(Player, PlayerFallback);

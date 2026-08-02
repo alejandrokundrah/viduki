@@ -72,14 +72,14 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                 deepLinks.player
             :
             null;
-    }, [deepLinks]);
+    }, [deepLinks, platform.name]);
 
     const download = React.useMemo(() => {
         return href === deepLinks?.externalPlayer?.playlist ?
             deepLinks.externalPlayer.fileName
             :
             null;
-    }, [href, deepLinks]);
+    }, [href, deepLinks, downloadLink]);
 
     const target = React.useMemo(() => {
         return href === deepLinks?.externalPlayer?.web ?
@@ -153,27 +153,18 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
         }
     }, [magnetLink]);
 
-    const copyDownloadLink = React.useCallback((event) => {
+    const downloadVideo = React.useCallback((event) => {
         event.preventDefault();
         closeMenu();
         if (downloadLink) {
-            navigator.clipboard.writeText(downloadLink)
-                .then(() => {
-                    toast.show({
-                        type: 'success',
-                        title: t('PLAYER_COPY_DOWNLOAD_LINK_SUCCESS'),
-                        timeout: 4000
-                    });
-                })
-                .catch(() => {
-                    toast.show({
-                        type: 'error',
-                        title: t('PLAYER_COPY_DOWNLOAD_LINK_ERROR'),
-                        timeout: 4000,
-                    });
-                });
+            const anchor = document.createElement('a');
+            anchor.href = downloadLink;
+            anchor.download = deepLinks?.externalPlayer?.fileName || '';
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
         }
-    }, [downloadLink]);
+    }, [deepLinks, downloadLink, closeMenu]);
 
     const copyStreamLink = React.useCallback((event) => {
         event.preventDefault();
@@ -298,14 +289,14 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                 }
                 {
                     downloadLink &&
-                        <Button className={styles['context-menu-option-container']} title={t('CTX_DOWNLOAD_VIDEO')} onClick={copyDownloadLink}>
+                        <Button className={styles['context-menu-option-container']} title={t('CTX_DOWNLOAD_VIDEO')} onClick={downloadVideo}>
                             <Icon className={styles['menu-icon']} name={'download'} />
-                            <div className={styles['context-menu-option-label']}>{t('CTX_COPY_VIDEO_DOWNLOAD_LINK')}</div>
+                            <div className={styles['context-menu-option-label']}>{t('CTX_DOWNLOAD_VIDEO')}</div>
                         </Button>
                 }
             </div>
         );
-    }, [copyStreamLink, copyMagnetLink, copyDownloadLink, openInWebtor, onClick, description, t]);
+    }, [copyStreamLink, copyMagnetLink, downloadVideo, openInWebtor, onClick, description, t]);
 
     React.useEffect(() => {
         if (!routeFocused) {
