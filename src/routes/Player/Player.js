@@ -4,7 +4,10 @@ const React = require('react');
 const { useParams, useNavigate } = require('react-router');
 const { withCoreSuspender } = require('stremio/common');
 const { parseVidukiMedia, getVidukiUrl, getNextFallbackApi, VIDUKI_APIS } = require('stremio/common/viduki');
-const { useFullscreen } = require('stremio/common');
+const { useFullscreen, useCoreSuspender } = require('stremio/common');
+const useVideo = require('./useVideo');
+const Video = require('./Video');
+const WebtorPlayer = require('../../components/WebtorPlayer');
 const styles = require('./styles');
 
 const ICONS = {
@@ -24,7 +27,6 @@ const ICONS = {
             <polyline points="8 3 3 3 3 8" /><line x1="3" y1="3" x2="9" y2="9" />
             <polyline points="16 3 21 3 21 8" /><line x1="21" y1="3" x2="15" y2="9" />
             <polyline points="8 21 3 21 3 16" /><line x1="3" y1="21" x2="9" y2="15" />
-            <polyline points="16 21 21 21 21 16" /><line x1="21" y1="21" x2="15" y2="15" />
         </svg>
     ),
 };
@@ -39,14 +41,46 @@ const API_LABELS = {
 const Player = () => {
     const { stream, type, id, videoId } = useParams();
     const navigate = useNavigate();
+    const { decodeStream } = useCoreSuspender();
+
+    const isViduki = typeof stream === 'string' && stream.startsWith('viduki_');
+    const video = useVideo();
+
+    const [decodedStream, setDecodedStream] = React.useState(null);
+    const [webtorOpen, setWebtorOpen] = React.useState(false);
+    const [webtorMagnet, setWebtorMagnet] = React.useState('');
+
+    React.useEffect(() => {
+        if (isViduki || typeof stream !== 'string') return;
+        try {
+            const decoded = decodeStream(stream);
+            setDecodedStream(decoded);
+        } catch (e) {
+            console.error('Failed to decode stream:', e);
+        }
+    }, [stream, isViduki]);
+
+    React.useEffect(() => {
+        if (!isViduki && decodedStream?.url) {
+            video.load({
+                stream: decodedStream,
+                subtitles: [],
+            });
+        }
+        return () => {
+            if (!isViduki) {
+                video.unload();
+            }
+        };
+    }, [decodedStream, isViduki]);
 
     const initialApi = React.useMemo(() => {
-        if (typeof stream === 'string' && stream.startsWith('viduki_')) {
+        if (isViduki) {
             const num = parseInt(stream.replace('viduki_', ''), 10);
             if (!isNaN(num) && num >= 1 && num <= 4) return num;
         }
         return 1;
-    }, [stream]);
+    }, [stream, isViduki]);
 
     const [currentApi, setCurrentApi] = React.useState(initialApi);
     const [allFailed, setAllFailed] = React.useState(false);
@@ -57,11 +91,14 @@ const Player = () => {
     const [fullscreen, , , toggleFullscreen] = useFullscreen();
 
     const mediaInfo = React.useMemo(() => {
-        return parseVidukiMedia({ type, id, videoId, video: null });
-    }, [type, id, videoId]);
+        if (isViduki) {
+            return parseVidukiMedia({ type, id, videoId, video: null });
+        }
+        return null;
+    }, [isViduki, type, id, videoId]);
 
     const iframeUrl = React.useMemo(() => {
-        if (!mediaInfo.mediaId) return null;
+        if (!isViduki || !mediaInfo?.mediaId) return null;
         return getVidukiUrl({
             api: currentApi,
             mediaType: mediaInfo.mediaType,
@@ -70,9 +107,13 @@ const Player = () => {
             episode: mediaInfo.episode,
             color: 'fcf007',
         });
-    }, [currentApi, mediaInfo]);
+    }, [isViduki, currentApi, mediaInfo]);
 
-    // Auto-hide overlay after 4s of no movement
+    const addonUrl = React.useMemo(() => {
+        if (isViduki || !decodedStream) return null;
+        return decodedStream.url || null;
+    }, [isViduki, decodedStream]);
+
     const showOverlay = React.useCallback(() => {
         setOverlayVisible(true);
         clearTimeout(overlayTimer.current);
@@ -84,11 +125,9 @@ const Player = () => {
         return () => clearTimeout(overlayTimer.current);
     }, []);
 
-    // Listen to mouse movement at the window level so it fires even from edges
     React.useEffect(() => {
         const onMove = () => showOverlay();
         window.addEventListener('mousemove', onMove);
-        // When the iframe steals focus (user clicked inside it), show the overlay briefly
         const onBlur = () => showOverlay();
         window.addEventListener('blur', onBlur);
         return () => {
@@ -121,7 +160,7 @@ const Player = () => {
         };
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [currentApi]);
+    }, [currentApi, isViduki]);
 
     const handleBack = React.useCallback(() => navigate(-1), [navigate]);
 
@@ -136,28 +175,34 @@ const Player = () => {
         setCurrentApi(1);
     }, []);
 
+    const handleOpenWebtor = React.useCallback(() => {
+        if (decodedStream?.deepLinks?.externalPlayer?.magnet) {
+            setWebtorMagnet(decodedStream.deepLinks.externalPlayer.magnet);
+            setWebtorOpen(true);
+        }
+    }, [decodedStream]);
+
+    const handleCloseWebtor = React.useCallback(() => {
+        setWebtorOpen(false);
+    }, []);
+
     return (
         <div
             ref={containerRef}
             className={`${styles['player-container']}${overlayVisible ? '' : ` ${styles['overlay-hidden']}`}`}
         >
-            {/* Gradient overlays that fade in/out with the bar */}
             <div className={styles['gradient-top']} />
 
-            {/* Floating overlay bar */}
             <div className={styles['overlay-bar']}>
-                {/* Left: back */}
                 <button className={styles['back-pill-btn']} onClick={handleBack} title="Back" aria-label="Back">
                     {ICONS.back}
                     <span className={styles['back-btn-text']}>Back</span>
                 </button>
 
-                {/* Spacer */}
                 <div className={styles['bar-spacer']} />
 
-                {/* Right: server pills + fullscreen grouped */}
                 <div className={styles['right-controls']}>
-                    {VIDUKI_APIS.map((api) => {
+                    {isViduki && VIDUKI_APIS.map((api) => {
                         const active = currentApi === api.id;
                         const label = API_LABELS[api.id];
                         return (
@@ -173,15 +218,29 @@ const Player = () => {
                         );
                     })}
 
-                    <button
-                        className={styles['server-pill']}
-                        style={{ background: 'rgba(252, 240, 7, 0.15)', borderColor: 'rgba(252, 240, 7, 0.5)', color: '#fcf007' }}
-                        title="Open Webtor Torrent Player"
-                        onClick={() => window.dispatchEvent(new CustomEvent('open-webtor-player'))}
-                    >
-                        <span className={styles['pill-badge']} style={{ background: '#fcf007', color: '#000' }}>P2P</span>
-                        <span className={styles['pill-text']}>⚡ Torrent Player</span>
-                    </button>
+                    {isViduki && (
+                        <button
+                            className={styles['server-pill']}
+                            style={{ background: 'rgba(252, 240, 7, 0.15)', borderColor: 'rgba(252, 240, 7, 0.5)', color: '#fcf007' }}
+                            title="Open Webtor Torrent Player"
+                            onClick={() => window.dispatchEvent(new CustomEvent('open-webtor-player'))}
+                        >
+                            <span className={styles['pill-badge']} style={{ background: '#fcf007', color: '#000' }}>P2P</span>
+                            <span className={styles['pill-text']}>⚡ Torrent Player</span>
+                        </button>
+                    )}
+
+                    {!isViduki && decodedStream?.deepLinks?.externalPlayer?.magnet && (
+                        <button
+                            className={styles['server-pill']}
+                            style={{ background: 'rgba(252, 240, 7, 0.15)', borderColor: 'rgba(252, 240, 7, 0.5)', color: '#fcf007' }}
+                            title="Open Torrent Player"
+                            onClick={handleOpenWebtor}
+                        >
+                            <span className={styles['pill-badge']} style={{ background: '#fcf007', color: '#000' }}>P2P</span>
+                            <span className={styles['pill-text']}>⚡ Torrent Player</span>
+                        </button>
+                    )}
 
                     <div className={styles['divider']} />
 
@@ -191,53 +250,85 @@ const Player = () => {
                 </div>
             </div>
 
-            {/* Player area */}
             <div className={styles['player-body']}>
-                {allFailed ? (
-                    <div className={styles['state-screen']}>
-                        <div className={styles['state-glow']} />
-                        <div className={styles['state-icon']}>⚠</div>
-                        <div className={styles['state-title']}>All Servers Unavailable</div>
-                        <div className={styles['state-msg']}>No stream was found across all Viduki servers for this title. Try playing via Torrent Player below.</div>
-                        <div className={styles['state-actions']}>
-                            <button className={styles['btn-primary']} style={{ background: '#fcf007', color: '#000' }} onClick={() => window.dispatchEvent(new CustomEvent('open-webtor-player'))}>
-                                ⚡ Stream with Torrent Player
-                            </button>
-                            <button className={styles['btn-secondary']} onClick={handleRetry}>Try Again</button>
-                            <button className={styles['btn-secondary']} onClick={handleBack}>Go Back</button>
+                {isViduki ? (
+                    allFailed ? (
+                        <div className={styles['state-screen']}>
+                            <div className={styles['state-glow']} />
+                            <div className={styles['state-icon']}>⚠</div>
+                            <div className={styles['state-title']}>All Servers Unavailable</div>
+                            <div className={styles['state-msg']}>No stream was found across all Viduki servers for this title. Try playing via Torrent Player below.</div>
+                            <div className={styles['state-actions']}>
+                                <button className={styles['btn-primary']} style={{ background: '#fcf007', color: '#000' }} onClick={() => window.dispatchEvent(new CustomEvent('open-webtor-player'))}>
+                                    ⚡ Stream with Torrent Player
+                                </button>
+                                <button className={styles['btn-secondary']} onClick={handleRetry}>Try Again</button>
+                                <button className={styles['btn-secondary']} onClick={handleBack}>Go Back</button>
+                            </div>
                         </div>
-                    </div>
-                ) : !iframeUrl ? (
+                    ) : !iframeUrl ? (
+                        <div className={styles['state-screen']}>
+                            <div className={styles['state-glow']} />
+                            <div className={styles['state-icon']}>✕</div>
+                            <div className={styles['state-title']}>Invalid Media</div>
+                            <div className={styles['state-msg']}>A valid TMDB or IMDB ID is required for playback.</div>
+                            <div className={styles['state-actions']}>
+                                <button className={styles['btn-secondary']} onClick={handleBack}>Go Back</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <iframe
+                            key={iframeUrl}
+                            className={styles['player-iframe']}
+                            src={iframeUrl}
+                            title="Viduki Player"
+                            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                            allowFullScreen
+                            referrerPolicy="no-referrer"
+                        />
+                    )
+                ) : addonUrl ? (
+                    <Video className={styles['video']} ref={video.containerRef} />
+                ) : decodedStream?.deepLinks?.externalPlayer?.magnet ? (
                     <div className={styles['state-screen']}>
                         <div className={styles['state-glow']} />
-                        <div className={styles['state-icon']}>✕</div>
-                        <div className={styles['state-title']}>Invalid Media</div>
-                        <div className={styles['state-msg']}>A valid TMDB or IMDB ID is required for playback.</div>
+                        <div className={styles['state-icon']}>⚡</div>
+                        <div className={styles['state-title']}>Torrent Stream</div>
+                        <div className={styles['state-msg']}>This stream requires the Torrent Player to play.</div>
                         <div className={styles['state-actions']}>
+                            <button className={styles['btn-primary']} style={{ background: '#fcf007', color: '#000' }} onClick={handleOpenWebtor}>
+                                ⚡ Open Torrent Player
+                            </button>
                             <button className={styles['btn-secondary']} onClick={handleBack}>Go Back</button>
                         </div>
                     </div>
                 ) : (
-                    <iframe
-                        key={iframeUrl}
-                        className={styles['player-iframe']}
-                        src={iframeUrl}
-                        title="Viduki Player"
-                        allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-                        allowFullScreen
-                        referrerPolicy="no-referrer"
-                    />
+                    <div className={styles['state-screen']}>
+                        <div className={styles['state-glow']} />
+                        <div className={styles['state-icon']}>✕</div>
+                        <div className={styles['state-title']}>Invalid Media</div>
+                        <div className={styles['state-msg']}>No playable stream was found for this media.</div>
+                        <div className={styles['state-actions']}>
+                            <button className={styles['btn-secondary']} onClick={handleBack}>Go Back</button>
+                        </div>
+                    </div>
                 )}
 
-                {/* Transparent cover — activates only when overlay is hidden so the
-                    iframe cannot swallow pointer events. Any move/click on it wakes
-                    the overlay back up and then becomes pointer-events:none again. */}
-                <div
-                    className={styles['iframe-cover']}
-                    onMouseMove={showOverlay}
-                    onClick={showOverlay}
-                />
+                {!isViduki && addonUrl && (
+                    <div
+                        className={styles['iframe-cover']}
+                        onMouseMove={showOverlay}
+                        onClick={showOverlay}
+                    />
+                )}
             </div>
+
+            {webtorOpen && (
+                <WebtorPlayer
+                    initialMagnet={webtorMagnet}
+                    onClose={handleCloseWebtor}
+                />
+            )}
         </div>
     );
 };
