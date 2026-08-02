@@ -9,7 +9,7 @@ const { Button } = require('stremio/components');
 const { useFullscreen } = require('stremio/common/Fullscreen');
 const { useHorizontalNavGamepadNavigation } = require('stremio/services/GamepadNavigation');
 const { useServices } = require('stremio/services');
-const { useNotifications, useToast, usePlatform } = require('stremio/common');
+const { useToast, usePlatform } = require('stremio/common');
 const SearchBar = require('./SearchBar');
 const NavMenu = require('./NavMenu');
 const styles = require('./styles');
@@ -18,13 +18,8 @@ const { t } = require('i18next');
 const HorizontalNavBar = React.memo(({ className, route, query, title, backButton, searchBar, fullscreenButton, navMenu, originPath, hdrInfo, ...props }) => {
     const navigate = useNavigate();
     const { chromecast } = useServices();
-    const notifications = useNotifications();
     const platform = usePlatform();
     const toast = useToast();
-    const newVideosCount = React.useMemo(() => {
-        if (!notifications || !notifications.items) return 0;
-        return Object.values(notifications.items).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0);
-    }, [notifications]);
     const onCastButtonClick = React.useCallback(() => {
         if (platform.shell.active) {
             toast.show({
@@ -45,10 +40,8 @@ const HorizontalNavBar = React.memo(({ className, route, query, title, backButto
         chromecast.transport.requestSession();
     }, [chromecast, platform, toast]);
     const onNotificationButtonClick = React.useCallback(() => {
-        if (newVideosCount > 0) {
-            navigate('/library');
-        }
-    }, [newVideosCount, navigate]);
+        navigate('/library');
+    }, [navigate]);
     const backButtonOnClick = React.useCallback(() => {
         if (originPath) {
             navigate(originPath, { replace: true });
@@ -107,12 +100,6 @@ const HorizontalNavBar = React.memo(({ className, route, query, title, backButto
                     </svg>
                 </Button>
                 <Button className={classnames(styles['button-container'], styles['notification-btn'])} title="Notifications" tabIndex={-1} onClick={onNotificationButtonClick}>
-                    {
-                        newVideosCount > 0 ?
-                            <span className={styles['notification-badge']} />
-                            :
-                            null
-                    }
                     <svg className={styles['nav-icon']} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                         <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
