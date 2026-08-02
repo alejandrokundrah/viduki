@@ -185,8 +185,9 @@ module.exports = (env, argv) => ({
         host: '0.0.0.0',
         static: false,
         hot: false,
-        server: 'https',
-        liveReload: false
+        server: process.env.V0_DEV_HTTP ? 'http' : 'https',
+        liveReload: false,
+        allowedHosts: 'all'
     },
     optimization: {
         minimize: true,
