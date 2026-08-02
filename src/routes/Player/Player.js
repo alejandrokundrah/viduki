@@ -2,9 +2,9 @@
 
 const React = require('react');
 const { useParams, useNavigate } = require('react-router');
-const { withCoreSuspender } = require('stremio/common');
+const { withCoreSuspender, useCoreSuspender, useStreamingServer } = require('stremio/common');
 const { parseVidukiMedia, getVidukiUrl, getNextFallbackApi, VIDUKI_APIS } = require('stremio/common/viduki');
-const { useFullscreen, useCoreSuspender } = require('stremio/common');
+const { useFullscreen } = require('stremio/common');
 const useVideo = require('./useVideo');
 const Video = require('./Video');
 const WebtorPlayer = require('../../components/WebtorPlayer');
@@ -42,6 +42,7 @@ const Player = () => {
     const { stream, type, id, videoId } = useParams();
     const navigate = useNavigate();
     const { decodeStream } = useCoreSuspender();
+    const streamingServer = useStreamingServer();
 
     const isViduki = typeof stream === 'string' && stream.startsWith('viduki_');
     const video = useVideo();
@@ -61,10 +62,15 @@ const Player = () => {
     }, [stream, isViduki]);
 
     React.useEffect(() => {
-        if (!isViduki && decodedStream?.url) {
+        if (!isViduki && decodedStream) {
+            const streamingServerURL = streamingServer.baseUrl ?
+                streamingServer.selected.transportUrl
+                :
+                null;
             video.load({
                 stream: decodedStream,
                 subtitles: [],
+                streamingServerURL: streamingServerURL,
             });
         }
         return () => {
@@ -72,7 +78,7 @@ const Player = () => {
                 video.unload();
             }
         };
-    }, [decodedStream, isViduki]);
+    }, [decodedStream, isViduki, streamingServer.baseUrl, streamingServer.selected]);
 
     const initialApi = React.useMemo(() => {
         if (isViduki) {
