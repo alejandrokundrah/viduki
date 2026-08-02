@@ -535,6 +535,112 @@ html:not(.active-slider-within) {
     }
 }
 
+// ── Viduki loading overlay ───────────────────────────────────────────────────
+
+@keyframes vidukiSpin {
+    to { transform: rotate(360deg); }
+}
+
+.viduki-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 7;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background: @bg;
+    pointer-events: none;
+}
+
+.viduki-spinner {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.15);
+    border-top-color: #fcf007;
+    animation: vidukiSpin 0.8s linear infinite;
+}
+
+.viduki-loading-text {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.01em;
+}
+
+// ── Viduki server switcher ───────────────────────────────────────────────────
+
+.server-switcher {
+    position: absolute;
+    top: 1.1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(10, 10, 12, 0.72);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+    opacity: 1;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.player-container.overlay-hidden .server-switcher {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -0.5rem);
+}
+
+.server-switcher-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.45);
+    padding: 0 0.35rem 0 0.25rem;
+}
+
+.server-chip {
+    min-width: 2.2rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s ease;
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
+        border-color: rgba(252, 240, 7, 0.4);
+    }
+
+    &:active {
+        transform: scale(0.94);
+    }
+}
+
+.server-chip-active {
+    background: #fcf007;
+    border-color: #fcf007;
+    color: #000000;
+    box-shadow: 0 2px 12px rgba(252, 240, 7, 0.4);
+
+    &:hover {
+        background: #fcf007;
+        color: #000000;
+    }
+}
+
 // ── Responsive ───────────────────────────────────────────────────────────────
 
 @media screen and (max-width: 640px) {

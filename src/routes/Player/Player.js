@@ -12,7 +12,7 @@ const { useCore } = require('stremio/core');
 const { useServices, useGamepad } = require('stremio/services');
 const { useContentGamepadNavigation } = require('stremio/services/GamepadNavigation');
 const { useSettings, useProfile, useFullscreen, useBinaryState, useToast, useStreamingServer, withCoreSuspender, usePlatform, onShortcut, getKeyboardShortcutKey, getKeyboardShortcutKeys, useDiscord, EMPTY_DISCORD_TIMESTAMPS, getPlaybackDiscordActivity } = require('stremio/common');
-const { parseVidukiMedia, getVidukiUrl, VIDUKI_APIS } = require('stremio/common/viduki');
+const { parseVidukiMedia, getVidukiUrl, VIDUKI_APIS, getNextFallbackApi } = require('stremio/common/viduki');
 const { default: toPath } = require('stremio-router/toPath');
 const { HorizontalNavBar, Transition, ContextMenu } = require('stremio/components');
 const { default: Buffering } = require('./Buffering');
@@ -95,7 +95,39 @@ const Player = () => {
     }, [stream, isViduki]);
 
     const [currentApi, setCurrentApi] = React.useState(initialApi);
-    const [allFailed] = React.useState(false);
+    const [allFailed, setAllFailed] = React.useState(false);
+    const [iframeLoaded, setIframeLoaded] = React.useState(false);
+    const watchdogRef = React.useRef(null);
+
+    // Cross-origin iframes hide their internal video state, so we can't read
+    // whether playback actually started. Instead we use a load-timeout
+    // watchdog: if the embed hasn't fired `load` within this window (or it
+    // errors), we assume this server failed and advance to the next one.
+    const VIDUKI_LOAD_TIMEOUT = 12000;
+
+    const switchToNextServer = React.useCallback(() => {
+        const next = getNextFallbackApi(currentApi);
+        if (next === null) {
+            setAllFailed(true);
+        } else {
+            setCurrentApi(next);
+        }
+    }, [currentApi]);
+
+    const selectServer = React.useCallback((apiId) => {
+        setAllFailed(false);
+        setCurrentApi(apiId);
+    }, []);
+
+    const onIframeLoad = React.useCallback(() => {
+        clearTimeout(watchdogRef.current);
+        setIframeLoaded(true);
+    }, []);
+
+    const onIframeError = React.useCallback(() => {
+        clearTimeout(watchdogRef.current);
+        switchToNextServer();
+    }, [switchToNextServer]);
 
     const mediaInfo = React.useMemo(() => {
         if (isViduki) {
@@ -115,6 +147,21 @@ const Player = () => {
             color: 'fcf007',
         });
     }, [isViduki, currentApi, mediaInfo]);
+
+    // (Re)start the load-timeout watchdog whenever the active embed URL
+    // changes. If the iframe hasn't reported a successful load in time, we
+    // treat the current server as failed and advance to the next one.
+    React.useEffect(() => {
+        if (!isViduki || !iframeUrl || allFailed) {
+            return undefined;
+        }
+        setIframeLoaded(false);
+        clearTimeout(watchdogRef.current);
+        watchdogRef.current = setTimeout(() => {
+            switchToNextServer();
+        }, VIDUKI_LOAD_TIMEOUT);
+        return () => clearTimeout(watchdogRef.current);
+    }, [isViduki, iframeUrl, allFailed, switchToNextServer]);
 
     const [seeking, setSeeking] = React.useState(false);
     const [casting, setCasting] = React.useState(() => {
@@ -1011,7 +1058,7 @@ const Player = () => {
                             <button className={styles['btn-primary']} style={{ background: '#fcf007', color: '#000' }} onClick={() => window.dispatchEvent(new CustomEvent('open-webtor-player'))}>
                                 ⚡ Stream with Torrent Player
                             </button>
-                            <button className={styles['btn-secondary']} onClick={() => setCurrentApi(1)}>Try Again</button>
+                            <button className={styles['btn-secondary']} onClick={() => selectServer(1)}>Try Again</button>
                             <button className={styles['btn-secondary']} onClick={() => navigate(-1)}>Go Back</button>
                         </div>
                     </div>
@@ -1026,15 +1073,46 @@ const Player = () => {
                         </div>
                     </div>
                 ) : (
-                    <iframe
-                        key={iframeUrl}
-                        className={styles['player-iframe']}
-                        src={iframeUrl}
-                        title="Viduki Player"
-                        allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-                        allowFullScreen
-                        referrerPolicy="no-referrer"
-                    />
+                    <React.Fragment>
+                        <iframe
+                            key={iframeUrl}
+                            className={styles['player-iframe']}
+                            src={iframeUrl}
+                            title="Viduki Player"
+                            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                            allowFullScreen
+                            referrerPolicy="no-referrer"
+                            onLoad={onIframeLoad}
+                            onError={onIframeError}
+                        />
+                        {
+                            !iframeLoaded ?
+                                <div className={styles['viduki-loading']}>
+                                    <div className={styles['viduki-spinner']} />
+                                    <div className={styles['viduki-loading-text']}>
+                                        {'Connecting to ' + (VIDUKI_APIS.find((a) => a.id === currentApi)?.name || ('Server ' + currentApi)) + '\u2026'}
+                                    </div>
+                                </div>
+                                :
+                                null
+                        }
+                        <div className={styles['server-switcher']}>
+                            <span className={styles['server-switcher-label']}>Server</span>
+                            {
+                                VIDUKI_APIS.map((a) => (
+                                    <button
+                                        key={a.id}
+                                        type="button"
+                                        title={a.name}
+                                        className={classnames(styles['server-chip'], { [styles['server-chip-active']]: a.id === currentApi })}
+                                        onClick={() => selectServer(a.id)}
+                                    >
+                                        {'S' + a.id}
+                                    </button>
+                                ))
+                            }
+                        </div>
+                    </React.Fragment>
                 )
             ) : (
                 <Video
