@@ -215,18 +215,6 @@ const Player = () => {
                         );
                     })}
 
-                    {isViduki && (
-                        <button
-                            className={styles['server-pill']}
-                            style={{ background: 'rgba(252, 240, 7, 0.15)', borderColor: 'rgba(252, 240, 7, 0.5)', color: '#fcf007' }}
-                            title="Open Webtor Torrent Player"
-                            onClick={() => window.dispatchEvent(new CustomEvent('open-webtor-player'))}
-                        >
-                            <span className={styles['pill-badge']} style={{ background: '#fcf007', color: '#000' }}>P2P</span>
-                            <span className={styles['pill-text']}>⚡ Torrent Player</span>
-                        </button>
-                    )}
-
                     <div className={styles['divider']} />
 
                     <button className={styles['icon-btn']} onClick={toggleFullscreen} title="Toggle fullscreen" aria-label="Toggle fullscreen">
@@ -242,11 +230,8 @@ const Player = () => {
                             <div className={styles['state-glow']} />
                             <div className={styles['state-icon']}>⚠</div>
                             <div className={styles['state-title']}>All Servers Unavailable</div>
-                            <div className={styles['state-msg']}>No stream was found across all Viduki servers for this title. Try playing via Torrent Player below.</div>
+                            <div className={styles['state-msg']}>No stream was found across all Viduki servers for this title.</div>
                             <div className={styles['state-actions']}>
-                                <button className={styles['btn-primary']} style={{ background: '#fcf007', color: '#000' }} onClick={() => window.dispatchEvent(new CustomEvent('open-webtor-player'))}>
-                                    ⚡ Stream with Torrent Player
-                                </button>
                                 <button className={styles['btn-secondary']} onClick={handleRetry}>Try Again</button>
                                 <button className={styles['btn-secondary']} onClick={handleBack}>Go Back</button>
                             </div>
