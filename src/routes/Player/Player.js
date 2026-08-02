@@ -574,9 +574,10 @@ const Player = () => {
                     casting ?
                         streamingServer.baseUrl
                         :
-                        (streamingServer.selected?.transportUrl || null)
+                        (streamingServer.selected?.transportUrl || streamingServer.baseUrl)
                     :
                     null,
+                streamingServerSettings: streamingServer.settings?.content || undefined,
                 seriesInfo: player.seriesInfo,
             }, {
                 chromecastTransport: services.chromecast.active ? services.chromecast.transport : null,
@@ -1045,7 +1046,7 @@ const Player = () => {
             )}
 
             {
-                !isViduki ?
+                !isViduki && !video.state.loaded ?
                     <div className={classnames(styles['layer'], styles['background-layer'])}>
                         <img className={styles['image']} src={player?.metaItem?.content?.background} />
                     </div>
