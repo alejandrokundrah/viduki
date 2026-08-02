@@ -120,6 +120,11 @@ const Player = () => {
         return decodedStream.url || null;
     }, [isViduki, decodedStream]);
 
+    const isTorrentAddon = React.useMemo(() => {
+        if (isViduki || !decodedStream) return false;
+        return typeof decodedStream.infoHash === 'string' && typeof decodedStream.fileIdx === 'number';
+    }, [isViduki, decodedStream]);
+
     const showOverlay = React.useCallback(() => {
         setOverlayVisible(true);
         clearTimeout(overlayTimer.current);
@@ -293,7 +298,7 @@ const Player = () => {
                             referrerPolicy="no-referrer"
                         />
                     )
-                ) : addonUrl ? (
+                ) : addonUrl || isTorrentAddon ? (
                     <Video className={styles['video']} ref={video.containerRef} />
                 ) : decodedStream?.deepLinks?.externalPlayer?.magnet ? (
                     <div className={styles['state-screen']}>
