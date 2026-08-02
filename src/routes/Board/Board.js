@@ -9,7 +9,6 @@ const useContinueWatchingPreview = require('./useContinueWatchingPreview');
 const HeroBanner = require('./HeroBanner');
 const TrendingRow = require('./TrendingRow');
 const OnplayFooter = require('./OnplayFooter');
-const WebtorPlayer = require('../../components/WebtorPlayer');
 const styles = require('./styles');
 const { default: StreamingServerWarning } = require('./StreamingServerWarning');
 
@@ -24,7 +23,6 @@ const Board = () => {
     const profile = useProfile();
     const boardCatalogsOffset = continueWatchingPreview.items.length > 0 ? 1 : 0;
     const scrollContainerRef = React.useRef();
-    const [webtorOpen, setWebtorOpen] = React.useState(false);
     const showStreamingServerWarning = React.useMemo(() => {
         return streamingServer.settings !== null && streamingServer.settings.type === 'Err' && (
             isNaN(profile.settings.streamingServerWarningDismissed.getTime()) ||
@@ -128,17 +126,6 @@ const Board = () => {
                     <OnplayFooter />
                 </div>
             </MainNavBars>
-            {/* Webtor floating button */}
-            <button
-                className={styles['webtor-fab']}
-                onClick={() => setWebtorOpen(true)}
-                title="Play any torrent via Webtor"
-            >
-                <span className={styles['fab-icon']}>⚡</span>
-                <span className={styles['fab-label']}>Play Torrent</span>
-            </button>
-            {/* Webtor modal */}
-            {webtorOpen && <WebtorPlayer onClose={() => setWebtorOpen(false)} />}
         </div>
     );
 };

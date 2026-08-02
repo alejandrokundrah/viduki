@@ -1,7 +1,6 @@
 // Copyright (C) 2017-2026 Smart code 203358507
 
 const React = require('react');
-const PropTypes = require('prop-types');
 const { useParams, useNavigate } = require('react-router');
 const { useSearchParams } = require('react-router-dom');
 const classnames = require('classnames');
@@ -39,73 +38,9 @@ const styles = require('./styles');
 const Video = require('./Video');
 const { default: Indicator } = require('./Indicator/Indicator');
 const { default: useMediaSession } = require('./useMediaSession');
-const Hls = require('hls.js');
 
 const findTrackByLang = (tracks, lang) => tracks.find((track) => track.lang === lang || langs.where('1', track.lang)?.[2] === lang);
 const findTrackById = (tracks, id) => tracks.find((track) => track.id === id);
-
-// Native video player for direct URLs — bypasses Stremio engine and CORS restrictions
-const DirectVideoPlayer = React.forwardRef(({ src, className, onClick, onDoubleClick }, ref) => {
-    const videoRef = React.useRef(null);
-
-    React.useEffect(() => {
-        const video = videoRef.current;
-        if (!video || !src) return;
-
-        const isHls = src.includes('.m3u8') || src.includes('/hls/');
-
-        if (isHls && Hls.isSupported()) {
-            const hls = new Hls({
-                enableWorker: true,
-                lowLatencyMode: false,
-                xhrSetup: (xhr) => {
-                    xhr.withCredentials = false;
-                },
-            });
-            hls.loadSource(src);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.play().catch(() => undefined);
-            });
-            hls.on(Hls.Events.ERROR, (event, data) => {
-                if (data.fatal) {
-                    console.error('HLS fatal error', data);
-                }
-            });
-            return () => {
-                hls.destroy();
-            };
-        } else {
-            video.src = src;
-            video.play().catch(() => undefined);
-        }
-    }, [src]);
-
-    return (
-        <div
-            ref={ref}
-            className={className}
-            onClick={onClick}
-            onDoubleClick={onDoubleClick}
-            style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}
-        >
-            <video
-                ref={videoRef}
-                style={{ width: '100%', height: '100%', display: 'block' }}
-                controls
-                playsInline
-                preload="auto"
-            />
-        </div>
-    );
-});
-DirectVideoPlayer.displayName = 'DirectVideoPlayer';
-DirectVideoPlayer.propTypes = {
-    src: PropTypes.string.isRequired,
-    className: PropTypes.string,
-    onClick: PropTypes.func,
-    onDoubleClick: PropTypes.func,
-};
 
 const GAMEPAD_HANDLER_ID = 'player';
 const CAST_DEVICES_REFRESH_INTERVAL = 5000;
@@ -150,22 +85,6 @@ const Player = () => {
     const discordTimestamps = React.useRef(EMPTY_DISCORD_TIMESTAMPS);
 
     const isViduki = typeof stream === 'string' && stream.startsWith('viduki_');
-
-    const directUrl = React.useMemo(() => {
-        if (isViduki || typeof stream !== 'string') return null;
-        let rawUrl = stream;
-        try {
-            rawUrl = decodeURIComponent(stream);
-        } catch (_error) {
-            rawUrl = stream;
-        }
-        if (/^https?:\/\/.+/i.test(rawUrl)) {
-            return rawUrl;
-        }
-        return null;
-    }, [stream, isViduki]);
-
-    const [useIframePlayer, setUseIframePlayer] = React.useState(false);
 
     const initialApi = React.useMemo(() => {
         if (isViduki) {
@@ -608,33 +527,13 @@ const Player = () => {
         };
     }, [onPlayPause, onGamepadSeekAndVol]);
 
-    // Video stream loading logic (Stremio stream OR direct HTTP/HTTPS stream)
+    // Video stream loading logic (Stremio stream)
     React.useEffect(() => {
         setError(null);
         cancelKeyboardSeek();
         video.unload();
 
         if (isViduki) return;
-
-        // For direct URLs in HTML5 mode, load via the Stremio video engine
-        if (directUrl && !useIframePlayer) {
-            const isHls = directUrl.includes('.m3u8') || directUrl.includes('/hls/');
-            video.load({
-                stream: {
-                    url: directUrl,
-                    title: 'Direct Stream',
-                    behaviorHints: isHls ? {
-                        proxyHeaders: {
-                            response: { 'content-type': 'application/vnd.apple.mpegurl' }
-                        }
-                    } : undefined
-                },
-                subtitles: [],
-                autoplay: true,
-                streamingServerURL: streamingServer.baseUrl && streamingServer.selected?.transportUrl ? streamingServer.selected.transportUrl : null,
-            });
-            return;
-        }
 
         if (player.selected && player.stream?.type === 'Ready' && streamingServer.settings?.type !== 'Loading') {
             const streamContent = player.stream.content;
@@ -684,7 +583,7 @@ const Player = () => {
                 shellTransport: platform.shell.active ? platform.shell : null,
             });
         }
-    }, [streamingServer.baseUrl, player.selected, player.stream, streamSubtitles, forceTranscoding, casting, cancelKeyboardSeek, isViduki, directUrl, useIframePlayer]);
+    }, [streamingServer.baseUrl, player.selected, player.stream, streamSubtitles, forceTranscoding, casting, cancelKeyboardSeek, isViduki]);
 
     React.useEffect(() => {
         !seeking && timeChanged(video.state.time, video.state.duration, video.state.manifest?.name);
@@ -1093,8 +992,6 @@ const Player = () => {
         };
     }, []);
 
-    const isDirectStream = Boolean(directUrl);
-
     return (
         <div ref={playerRef} className={classnames(styles['player-container'], { [styles['overlayHidden']]: overlayHidden })}
             onMouseDown={onContainerMouseDown}
@@ -1138,24 +1035,6 @@ const Player = () => {
                         referrerPolicy="no-referrer"
                     />
                 )
-            ) : useIframePlayer && directUrl ? (
-                <iframe
-                    key={directUrl}
-                    className={styles['player-iframe']}
-                    src={directUrl}
-                    title="Direct Stream Player"
-                    allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-                    allowFullScreen
-                    referrerPolicy="no-referrer"
-                />
-            ) : directUrl ? (
-                <DirectVideoPlayer
-                    key={directUrl}
-                    src={directUrl}
-                    className={styles['layer']}
-                    onClick={onVideoClick}
-                    onDoubleClick={onVideoDoubleClick}
-                />
             ) : (
                 <Video
                     ref={video.containerRef}
@@ -1166,7 +1045,7 @@ const Player = () => {
             )}
 
             {
-                !isViduki && !useIframePlayer && !directUrl && !video.state.loaded ?
+                !isViduki ?
                     <div className={classnames(styles['layer'], styles['background-layer'])}>
                         <img className={styles['image']} src={player?.metaItem?.content?.background} />
                     </div>
@@ -1174,7 +1053,7 @@ const Player = () => {
                     null
             }
             {
-                !isViduki && !useIframePlayer && !directUrl && (video.state.buffering || !video.state.loaded) && !error ?
+                !isViduki && (video.state.buffering || !video.state.loaded) && !error ?
                     <Buffering
                         ref={bufferingRef}
                         className={classnames(styles['layer'], styles['buffering-layer'])}
@@ -1185,7 +1064,7 @@ const Player = () => {
                     null
             }
             {
-                !isViduki && !useIframePlayer && error !== null ?
+                !isViduki && error !== null ?
                     <Error
                         ref={errorRef}
                         className={classnames(styles['layer'], styles['error-layer'])}
@@ -1202,7 +1081,7 @@ const Player = () => {
                     null
             }
             {
-                !isViduki && !useIframePlayer && video.state.volume !== null && overlayHidden ?
+                !isViduki && video.state.volume !== null && overlayHidden ?
                     <VolumeChangeIndicator
                         muted={video.state.muted}
                         volume={video.state.volume}
@@ -1211,7 +1090,7 @@ const Player = () => {
                     null
             }
             {
-                !isViduki && !useIframePlayer && (
+                !isViduki && (
                     <ContextMenu on={[video.containerRef, bufferingRef, errorRef]} autoClose>
                         <OptionsMenu
                             className={classnames(styles['layer'], styles['menu-layer'])}
@@ -1226,37 +1105,13 @@ const Player = () => {
 
             <HorizontalNavBar
                 className={classnames(styles['layer'], styles['nav-bar-layer'])}
-                title={isDirectStream ? 'Direct Movie Stream' : player.title !== null ? player.title : ''}
+                title={player.title !== null ? player.title : ''}
                 backButton={true}
                 fullscreenButton={true}
                 hdrInfo={video.state.hdrInfo}
                 onMouseMove={onBarMouseMove}
                 onMouseOver={onBarMouseMove}
             />
-
-            {
-                !isViduki && isDirectStream && (
-                    <div className={styles['direct-stream-controls']} style={{ position: 'absolute', top: 20, right: 80, zIndex: 1000, display: 'flex', gap: 10 }}>
-                        <button
-                            className={`${styles['server-pill'] || ''}`}
-                            style={{
-                                background: useIframePlayer ? '#fcf007' : 'rgba(255,255,255,0.15)',
-                                color: useIframePlayer ? '#000' : '#fff',
-                                padding: '6px 14px',
-                                borderRadius: '20px',
-                                border: '1px solid rgba(255,255,255,0.3)',
-                                cursor: 'pointer',
-                                fontWeight: 'bold',
-                                fontSize: '13px'
-                            }}
-                            title="Toggle Direct Embed Mode"
-                            onClick={() => setUseIframePlayer((v) => !v)}
-                        >
-                            {useIframePlayer ? '📺 Direct Embed Mode' : '🎬 HTML5 Player Mode'}
-                        </button>
-                    </div>
-                )
-            }
 
             {
                 player.metaItem?.type === 'Ready' ?
@@ -1269,7 +1124,7 @@ const Player = () => {
             }
 
             {
-                !isViduki && !useIframePlayer && !directUrl && (
+                !isViduki && (
                     <ControlBar
                         ref={controlBarRef}
                         className={classnames(styles['layer'], styles['control-bar-layer'])}
@@ -1312,7 +1167,7 @@ const Player = () => {
             }
 
             {
-                !isViduki && !useIframePlayer && !directUrl && (
+                !isViduki && (
                     <Indicator
                         className={classnames(styles['layer'], styles['indicator-layer'])}
                         videoState={video.state}

@@ -1,6 +1,19 @@
 // Copyright (C) 2017-2026 Smart code 203358507 & Onplay
 // Player Design System — Onplay Yellow Theme
 
+@import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
+@import (reference) '~stremio/common/screen-sizes.less';
+
+:import('~stremio/components/Slider/styles.less') {
+    active-slider-within: active-slider-within;
+}
+
+:import('~stremio/components/NavBar/HorizontalNavBar/styles.less') {
+    nav-bar-button-container: button-container;
+    nav-bar-title: title;
+    nav-bar-icon: icon;
+}
+
 @accent:        #fcf007;
 @accent-dark:   #d4a017;
 @accent-light:  #fff566;
@@ -8,6 +21,17 @@
 @accent-glow2:  rgba(234, 179, 8, 0.2);
 @bg:            #08090c;
 @bar-height:    4.2rem;
+
+html:not(.active-slider-within) {
+    .player-container.overlayHidden {
+        cursor: none;
+
+        .nav-bar-layer, .control-bar-layer, .menu-layer, .side-drawer-button-layer {
+            opacity: 0;
+            transition: opacity 200ms;
+        }
+    }
+}
 
 // ── Keyframes ────────────────────────────────────────────────────────────────
 
@@ -38,26 +62,32 @@
 
 .player-container {
     position: relative;
+    z-index: 0;
     width: 100%;
     height: 100%;
     background: @bg;
     overflow: hidden;
     font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
 
+    &.overlay-hidden {
+        cursor: none;
+
+        .nav-bar-layer, .control-bar-layer, .menu-layer, .side-drawer-button-layer {
+            opacity: 0;
+            transition: opacity 200ms;
+        }
+    }
+
     .gradient-top,
     .overlay-bar {
         transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    &.overlay-hidden {
-        cursor: none;
-
-        .gradient-top,
-        .overlay-bar {
-            opacity: 0;
-            transform: translateY(-8px);
-            pointer-events: none;
-        }
+    &.overlay-hidden .gradient-top,
+    &.overlay-hidden .overlay-bar {
+        opacity: 0;
+        transform: translateY(-8px);
+        pointer-events: none;
     }
 }
 
@@ -70,6 +100,119 @@
     z-index: 2;
     pointer-events: none;
     background: linear-gradient(to bottom, rgba(8, 9, 12, 0.92) 0%, rgba(8, 9, 12, 0.4) 60%, transparent 100%);
+}
+
+.layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 0;
+
+    &.buffering-layer, &.error-layer {
+        background: transparent;
+    }
+
+    &.background-layer {
+        .image {
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            opacity: 0.6;
+        }
+    }
+
+    &.nav-bar-layer {
+        left: var(--safe-area-inset-left);
+        right: var(--safe-area-inset-right);
+        bottom: initial;
+        background: transparent;
+        overflow: visible;
+
+        &::before {
+            position: absolute;
+            right: 0;
+            top: 0;
+            left: 0;
+            height: 8rem;
+            z-index: -1;
+            content: "";
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .nav-bar-button-container {
+            &:hover {
+                background: transparent;
+            }
+
+            .nav-bar-icon {
+                color: var(--primary-foreground-color);
+            }
+        }
+
+        .nav-bar-title {
+            color: var(--primary-foreground-color);
+        }
+    }
+
+    &.side-drawer-button-layer {
+        position: fixed;
+        top: 50%;
+        right: -4rem;
+        left: initial;
+        transform: translateY(-50%);
+    }
+
+    &.control-bar-layer {
+        left: var(--safe-area-inset-left);
+        right: var(--safe-area-inset-right);
+        top: initial;
+        overflow: visible;
+        padding-bottom: calc(0.5rem + var(--safe-area-inset-bottom));
+
+        &::before {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            height: 10rem;
+            z-index: -1;
+            content: "";
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.35) 0%, transparent 100%);
+            pointer-events: none;
+        }
+    }
+
+    &.indicator-layer {
+        top: initial;
+        left: 0;
+        right: 0;
+        bottom: 10rem;
+    }
+
+    &.menu-layer {
+        top: initial;
+        left: initial;
+        right: 4rem;
+        bottom: 7.5rem;
+        max-height: calc(100% - 13rem);
+        max-width: calc(100% - 4rem);
+        border-radius: var(--border-radius);
+        background-color: var(--modal-background-color);
+        box-shadow: 0 1.35rem 2.7rem @color-background-dark5-40,
+            0 1.1rem 0.85rem @color-background-dark5-20;
+        backdrop-filter: blur(15px);
+        overflow: auto;
+    }
+
+    &.side-drawer-layer {
+        bottom: 0;
+        right: 0;
+        left: initial;
+        top: initial;
+    }
 }
 
 // ── Floating overlay bar ────────────────────────────────────────────────────
@@ -396,4 +539,25 @@
     .pill-badge { display: none; }
     .server-pill { padding: 0.35rem 0.75rem; font-size: 0.75rem; }
     .overlay-bar { padding: 0 0.85rem; }
+}
+
+@media screen and (max-width: @xsmall) {
+    .player-container {
+        .layer {
+            &.side-drawer-button-layer {
+                right: -2rem;
+            }
+        }
+    }
+}
+
+@media (orientation: portrait) and (max-width: @minimum) {
+    .player-container {
+        .layer {
+            &.menu-layer {
+                right: 2.5rem;
+                bottom: 11rem;
+            }
+        }
+    }
 }

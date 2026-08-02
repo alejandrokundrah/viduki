@@ -32,7 +32,6 @@ import Transition from './Transition';
 import Video from './Video';
 import ActionsGroup from './ActionsGroup';
 import VidukiPlayer from './VidukiPlayer';
-import WebtorPlayer from './WebtorPlayer';
 
 
 export {
@@ -71,7 +70,6 @@ export {
     Video,
     ActionsGroup,
     VidukiPlayer,
-    WebtorPlayer,
 };
 
 
