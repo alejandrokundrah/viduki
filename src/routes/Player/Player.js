@@ -7,7 +7,6 @@ const { parseVidukiMedia, getVidukiUrl, getNextFallbackApi, VIDUKI_APIS } = requ
 const { useFullscreen } = require('stremio/common');
 const useVideo = require('./useVideo');
 const Video = require('./Video');
-const WebtorPlayer = require('../../components/WebtorPlayer');
 const styles = require('./styles');
 
 const ICONS = {
@@ -48,8 +47,6 @@ const Player = () => {
     const video = useVideo();
 
     const [decodedStream, setDecodedStream] = React.useState(null);
-    const [webtorOpen, setWebtorOpen] = React.useState(false);
-    const [webtorMagnet, setWebtorMagnet] = React.useState('');
 
     React.useEffect(() => {
         if (isViduki || typeof stream !== 'string') return;
@@ -186,17 +183,6 @@ const Player = () => {
         setCurrentApi(1);
     }, []);
 
-    const handleOpenWebtor = React.useCallback(() => {
-        if (decodedStream?.deepLinks?.externalPlayer?.magnet) {
-            setWebtorMagnet(decodedStream.deepLinks.externalPlayer.magnet);
-            setWebtorOpen(true);
-        }
-    }, [decodedStream]);
-
-    const handleCloseWebtor = React.useCallback(() => {
-        setWebtorOpen(false);
-    }, []);
-
     return (
         <div
             ref={containerRef}
@@ -235,18 +221,6 @@ const Player = () => {
                             style={{ background: 'rgba(252, 240, 7, 0.15)', borderColor: 'rgba(252, 240, 7, 0.5)', color: '#fcf007' }}
                             title="Open Webtor Torrent Player"
                             onClick={() => window.dispatchEvent(new CustomEvent('open-webtor-player'))}
-                        >
-                            <span className={styles['pill-badge']} style={{ background: '#fcf007', color: '#000' }}>P2P</span>
-                            <span className={styles['pill-text']}>⚡ Torrent Player</span>
-                        </button>
-                    )}
-
-                    {!isViduki && decodedStream?.deepLinks?.externalPlayer?.magnet && (
-                        <button
-                            className={styles['server-pill']}
-                            style={{ background: 'rgba(252, 240, 7, 0.15)', borderColor: 'rgba(252, 240, 7, 0.5)', color: '#fcf007' }}
-                            title="Open Torrent Player"
-                            onClick={handleOpenWebtor}
                         >
                             <span className={styles['pill-badge']} style={{ background: '#fcf007', color: '#000' }}>P2P</span>
                             <span className={styles['pill-text']}>⚡ Torrent Player</span>
@@ -300,19 +274,6 @@ const Player = () => {
                     )
                 ) : addonUrl || isTorrentAddon ? (
                     <Video className={styles['video']} ref={video.containerRef} />
-                ) : decodedStream?.deepLinks?.externalPlayer?.magnet ? (
-                    <div className={styles['state-screen']}>
-                        <div className={styles['state-glow']} />
-                        <div className={styles['state-icon']}>⚡</div>
-                        <div className={styles['state-title']}>Torrent Stream</div>
-                        <div className={styles['state-msg']}>This stream requires the Torrent Player to play.</div>
-                        <div className={styles['state-actions']}>
-                            <button className={styles['btn-primary']} style={{ background: '#fcf007', color: '#000' }} onClick={handleOpenWebtor}>
-                                ⚡ Open Torrent Player
-                            </button>
-                            <button className={styles['btn-secondary']} onClick={handleBack}>Go Back</button>
-                        </div>
-                    </div>
                 ) : (
                     <div className={styles['state-screen']}>
                         <div className={styles['state-glow']} />
@@ -325,7 +286,7 @@ const Player = () => {
                     </div>
                 )}
 
-                {!isViduki && addonUrl && (
+                {!isViduki && (addonUrl || isTorrentAddon) && (
                     <div
                         className={styles['iframe-cover']}
                         onMouseMove={showOverlay}
@@ -333,13 +294,6 @@ const Player = () => {
                     />
                 )}
             </div>
-
-            {webtorOpen && (
-                <WebtorPlayer
-                    initialMagnet={webtorMagnet}
-                    onClose={handleCloseWebtor}
-                />
-            )}
         </div>
     );
 };
