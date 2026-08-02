@@ -4,6 +4,20 @@
 @import (reference) '~stremio/common/screen-sizes.less';
 
 .horizontal-nav-bar-container {
+    &.minimal {
+        justify-content: flex-start;
+        pointer-events: none;
+        background: transparent;
+
+        .back-button-container {
+            pointer-events: auto;
+        }
+
+        &::before {
+            display: none;
+        }
+    }
+
     display: flex;
     flex-direction: row;
     align-items: center;

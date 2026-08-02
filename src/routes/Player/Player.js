@@ -1184,9 +1184,10 @@ const Player = () => {
 
             <HorizontalNavBar
                 className={classnames(styles['layer'], styles['nav-bar-layer'])}
-                title={player.title !== null ? player.title : ''}
+                title={isViduki ? '' : (player.title !== null ? player.title : '')}
                 backButton={true}
-                fullscreenButton={true}
+                fullscreenButton={!isViduki}
+                minimal={isViduki}
                 hdrInfo={video.state.hdrInfo}
                 onMouseMove={onBarMouseMove}
                 onMouseOver={onBarMouseMove}

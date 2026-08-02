@@ -16,7 +16,7 @@ const NavMenu = require('./NavMenu');
 const styles = require('./styles');
 const { t } = require('i18next');
 
-const HorizontalNavBar = React.memo(({ className, route, query, title, backButton, searchBar, fullscreenButton, navMenu, originPath, hdrInfo, ...props }) => {
+const HorizontalNavBar = React.memo(({ className, route, query, title, backButton, searchBar, fullscreenButton, navMenu, originPath, hdrInfo, minimal, ...props }) => {
     const navigate = useNavigate();
     const { chromecast } = useServices();
     const platform = usePlatform();
@@ -58,6 +58,16 @@ const HorizontalNavBar = React.memo(({ className, route, query, title, backButto
         </Button>
     ), []);
     useHorizontalNavGamepadNavigation(route || className, backButton);
+    if (minimal) {
+        return (
+            <nav {...props} className={classnames(className, styles['horizontal-nav-bar-container'], styles['minimal'])}>
+                <Button className={classnames(styles['button-container'], styles['back-button-container'])} tabIndex={-1} onClick={backButtonOnClick} title={t('BACK') || 'Back'}>
+                    <Icon className={styles['icon']} name={'chevron-back'} />
+                    <span className={styles['back-label']}>Back</span>
+                </Button>
+            </nav>
+        );
+    }
     return (
         <nav {...props} className={classnames(className, styles['horizontal-nav-bar-container'])}>
             {
@@ -140,6 +150,7 @@ HorizontalNavBar.propTypes = {
     hdrInfo: PropTypes.shape({
         gamma: PropTypes.string,
     }),
+    minimal: PropTypes.bool,
 };
 
 module.exports = HorizontalNavBar;
