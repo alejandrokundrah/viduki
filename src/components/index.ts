@@ -71,6 +71,7 @@ export {
     Video,
     ActionsGroup,
     VidukiPlayer,
+    WebtorPlayer,
 };
 
 

@@ -14,7 +14,25 @@ const DeepLinkHandler = require('./DeepLinkHandler');
 const { default: UpdaterBanner } = require('./UpdaterBanner');
 const { default: ShortcutsModal } = require('./ShortcutsModal');
 const { default: GamepadModal } = require('./GamepadModal');
+const WebtorPlayer = require('../components/WebtorPlayer');
 const styles = require('./styles');
+
+const GlobalWebtorPlayer = () => {
+    const [open, setOpen] = React.useState(false);
+    const [magnet, setMagnet] = React.useState('');
+
+    React.useEffect(() => {
+        const handler = (e) => {
+            setMagnet(e.detail?.magnet || '');
+            setOpen(true);
+        };
+        window.addEventListener('open-webtor-player', handler);
+        return () => window.removeEventListener('open-webtor-player', handler);
+    }, []);
+
+    if (!open) return null;
+    return <WebtorPlayer initialMagnet={magnet} onClose={() => setOpen(false)} />;
+};
 
 const ProtectedRoutes = withCoreSuspender(Routes);
 const NAVIGATE_TABS_ROUTES = ['/', '/discover', '/library', '/calendar', '/addons', '/settings'];
@@ -233,6 +251,7 @@ const App = () => {
                                     <DeepLinkHandler />
                                     <UpdaterBanner className={styles['updater-banner-container']} />
                                     <ProtectedRoutes />
+                                    <GlobalWebtorPlayer />
                                 </DiscordProvider>
                             </FullscreenProvider>
                         </ShortcutsProvider>
