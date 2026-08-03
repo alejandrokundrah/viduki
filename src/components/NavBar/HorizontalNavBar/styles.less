@@ -14,6 +14,7 @@
     overflow: visible;
     padding-top: var(--safe-area-inset-top);
     box-sizing: content-box;
+    pointer-events: none;
 
     .logo-container {
         flex: none;
@@ -23,6 +24,8 @@
         padding-left: 1.25rem;
         height: var(--horizontal-nav-bar-size);
         cursor: pointer;
+        pointer-events: auto;
+        transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
 
         .brand-logo {
             height: 2.2rem;
@@ -73,54 +76,7 @@
 
     .back-button-container {
         margin-left: max(0.5rem, calc(1rem - var(--safe-area-inset-left)));
-        width: auto !important;
-        padding: 0 1.1rem 0 0.75rem !important;
-        height: 2.75rem !important;
-        border-radius: 999px !important;
-        background: rgba(255, 255, 255, 0.08) !important;
-        border: 1px solid rgba(255, 255, 255, 0.14) !important;
-        backdrop-filter: blur(12px) !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 0.35rem !important;
-        transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        opacity: 0.95 !important;
-        cursor: pointer;
-
-        .icon {
-            width: 1.25rem !important;
-            height: 1.25rem !important;
-            color: #fff !important;
-            opacity: 0.9 !important;
-            transition: transform 0.2s ease !important;
-        }
-
-        .back-label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: rgba(255, 255, 255, 0.9);
-            letter-spacing: 0.02em;
-        }
-
-        &:hover {
-            background: linear-gradient(135deg, rgba(252, 240, 7, 0.4) 0%, rgba(234, 179, 8, 0.3) 100%) !important;
-            border-color: rgba(252, 240, 7, 0.6) !important;
-            box-shadow: 0 0 20px rgba(252, 240, 7, 0.4) !important;
-            transform: translateY(-1px) !important;
-
-            .icon {
-                transform: translateX(-3px) !important;
-                color: #fff !important;
-            }
-
-            .back-label {
-                color: #fff;
-            }
-        }
-
-        &:active {
-            transform: scale(0.95) !important;
-        }
+        pointer-events: auto;
     }
 
     .title {
@@ -133,11 +89,14 @@
         white-space: nowrap;
         text-overflow: ellipsis;
         color: @color-secondaryvariant2-light1-90;
+        transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
     }
 
     .search-bar {
         height: 3.25rem;
         width: 30rem;
+        pointer-events: auto;
+        transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
     }
 
     .buttons-container {
@@ -146,6 +105,8 @@
         align-items: center;
         gap: 0.5rem;
         overflow: visible;
+        pointer-events: auto;
+        transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
     }
 
     .button-container {
@@ -198,6 +159,73 @@
                 opacity: 1;
                 transform: scale(1.1);
             }
+        }
+    }
+
+    .server-switcher-nav {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.5rem;
+        border-radius: 999px;
+        background: rgba(10, 10, 12, 0.72);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease;
+        margin-right: 0.25rem;
+
+        &.server-switcher-hidden {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            transform: translateY(-0.5rem) !important;
+            pointer-events: none !important;
+        }
+    }
+
+    .server-chip-nav {
+        min-width: 2.05rem;
+        padding: 0.3rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.75);
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.18s ease;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.14);
+            color: #ffffff;
+            border-color: rgba(252, 240, 7, 0.4);
+        }
+
+        &:active {
+            transform: scale(0.94);
+        }
+    }
+
+    .server-chip-nav-active {
+        background: #fcf007;
+        border-color: #fcf007;
+        color: #000000;
+        box-shadow: 0 2px 10px rgba(252, 240, 7, 0.4);
+
+        &:hover {
+            background: #fcf007;
+            color: #000000;
+        }
+    }
+
+    &.buttons-hidden {
+        .nav-element-hidden {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            transform: translateY(-8px) !important;
+            pointer-events: none !important;
         }
     }
 }

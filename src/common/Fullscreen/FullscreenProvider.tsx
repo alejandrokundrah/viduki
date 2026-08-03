@@ -15,6 +15,8 @@ type Props = {
 const hasWebkitFullscreen = typeof HTMLVideoElement !== 'undefined' &&
     typeof HTMLVideoElement.prototype.webkitEnterFullscreen === 'function';
 
+const UI_HIDE_DELAY = 3000;
+
 const FullscreenProvider = ({ children }: Props) => {
     const { shell } = usePlatform();
     const [settings] = useSettings();
@@ -27,6 +29,60 @@ const FullscreenProvider = ({ children }: Props) => {
         if (typeof document === 'undefined') return false;
         return document.fullscreenElement === document.documentElement;
     });
+
+    const [uiVisible, setUiVisible] = useState<boolean>(true);
+    const uiHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const scheduleUiHide = useCallback(() => {
+        if (uiHideTimerRef.current !== null) {
+            clearTimeout(uiHideTimerRef.current);
+        }
+        uiHideTimerRef.current = setTimeout(() => {
+            setUiVisible(false);
+        }, UI_HIDE_DELAY);
+    }, []);
+
+    const handleMouseActivity = useCallback(() => {
+        setUiVisible(true);
+        if (fullscreen) {
+            scheduleUiHide();
+        }
+    }, [fullscreen, scheduleUiHide]);
+
+    useEffect(() => {
+        if (!fullscreen) {
+            if (uiHideTimerRef.current !== null) {
+                clearTimeout(uiHideTimerRef.current);
+                uiHideTimerRef.current = null;
+            }
+            setUiVisible(true);
+        } else {
+            setUiVisible(false);
+            scheduleUiHide();
+        }
+    }, [fullscreen, scheduleUiHide]);
+
+    useEffect(() => {
+        const onMouseMove = () => handleMouseActivity();
+        const onMouseDown = () => handleMouseActivity();
+        const onTouchStart = () => handleMouseActivity();
+        const onKeyUp = () => handleMouseActivity();
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mousedown', onMouseDown);
+        window.addEventListener('touchstart', onTouchStart);
+        window.addEventListener('keyup', onKeyUp);
+
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mousedown', onMouseDown);
+            window.removeEventListener('touchstart', onTouchStart);
+            window.removeEventListener('keyup', onKeyUp);
+            if (uiHideTimerRef.current !== null) {
+                clearTimeout(uiHideTimerRef.current);
+            }
+        };
+    }, [handleMouseActivity]);
 
     const setVideoElement = useCallback((el: HTMLVideoElement | null) => {
         videoElementRef.current = el;
@@ -108,8 +164,8 @@ const FullscreenProvider = ({ children }: Props) => {
     }, [shell, toggleFullscreen, exitFullscreen, escExitFullscreen, hasVideoElement]);
 
     const value = useMemo<FullscreenContextValue>(
-        () => [fullscreen, requestFullscreen, exitFullscreen, toggleFullscreen, supported, setVideoElement],
-        [fullscreen, requestFullscreen, exitFullscreen, toggleFullscreen, supported, setVideoElement]
+        () => [fullscreen, requestFullscreen, exitFullscreen, toggleFullscreen, supported, setVideoElement, uiVisible],
+        [fullscreen, requestFullscreen, exitFullscreen, toggleFullscreen, supported, setVideoElement, uiVisible]
     );
 
     return (

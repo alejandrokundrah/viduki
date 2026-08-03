@@ -14,6 +14,7 @@
     overflow-y: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
 
     &::-webkit-scrollbar {
         display: none;
@@ -23,6 +24,16 @@
         width: calc(var(--vertical-nav-bar-size) - 1.2rem);
         height: calc(var(--vertical-nav-bar-size) - 1.2rem);
         min-height: 3.5rem;
+        transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease;
+    }
+
+    &.tabs-hidden {
+        .nav-tab-button.nav-tab-hidden {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            transform: translateX(-8px) !important;
+            pointer-events: none !important;
+        }
     }
 }
 
@@ -42,6 +53,12 @@
 
             &:last-child {
                 display: none;
+            }
+        }
+
+        &.tabs-hidden {
+            .nav-tab-button.nav-tab-hidden {
+                transform: translateY(8px) !important;
             }
         }
     }

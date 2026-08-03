@@ -16,7 +16,7 @@ const NavMenu = require('./NavMenu');
 const styles = require('./styles');
 const { t } = require('i18next');
 
-const HorizontalNavBar = React.memo(({ className, route, query, title, backButton, searchBar, fullscreenButton, navMenu, originPath, hdrInfo, ...props }) => {
+const HorizontalNavBar = React.memo(({ className, route, query, title, backButton, searchBar, fullscreenButton, navMenu, originPath, hdrInfo, s3s4Mode, s3s4ButtonsVisible, isViduki, vidukiApis, currentApi, onSelectServer, serverSwitcherHidden, onServerSwitcherMouseEnter, onServerSwitcherMouseMove, ...props }) => {
     const navigate = useNavigate();
     const { chromecast } = useServices();
     const platform = usePlatform();
@@ -50,7 +50,18 @@ const HorizontalNavBar = React.memo(({ className, route, query, title, backButto
             navigate(-1);
         }
     }, [originPath, navigate]);
-    const [fullscreen, requestFullscreen, exitFullscreen, , supported] = useFullscreen();
+    const [fullscreen, requestFullscreen, exitFullscreen, , supported, , uiVisible] = useFullscreen();
+
+    const buttonsHidden = React.useMemo(() => {
+        if (fullscreen && !uiVisible) {
+            return true;
+        }
+        if (s3s4Mode && !s3s4ButtonsVisible) {
+            return true;
+        }
+        return false;
+    }, [fullscreen, uiVisible, s3s4Mode, s3s4ButtonsVisible]);
+
     const renderNavMenuLabel = React.useCallback(({ ref, className, onClick, children, }) => (
         <Button ref={ref} className={classnames(className, styles['button-container'], styles['menu-button-container'])} tabIndex={-1} onClick={onClick}>
             <Icon className={styles['icon']} name={'person-outline'} />
@@ -59,32 +70,55 @@ const HorizontalNavBar = React.memo(({ className, route, query, title, backButto
     ), []);
     useHorizontalNavGamepadNavigation(route || className, backButton);
     return (
-        <nav {...props} className={classnames(className, styles['horizontal-nav-bar-container'])}>
+        <nav {...props} className={classnames(className, styles['horizontal-nav-bar-container'], { [styles['buttons-hidden']]: buttonsHidden })}>
             {
                 backButton ?
-                    <Button className={classnames(styles['button-container'], styles['back-button-container'])} tabIndex={-1} onClick={backButtonOnClick} title={t('BACK') || 'Back'}>
+                    <Button className={classnames(styles['button-container'], styles['back-button-container'], { [styles['nav-element-hidden']]: buttonsHidden })} tabIndex={-1} onClick={backButtonOnClick} title={t('BACK') || 'Back'}>
                         <Icon className={styles['icon']} name={'chevron-back'} />
-                        <span className={styles['back-label']}>Back</span>
                     </Button>
                     :
-                    <div className={styles['logo-container']} onClick={() => navigate('/')}>
+                    <div className={classnames(styles['logo-container'], { [styles['nav-element-hidden']]: buttonsHidden })} onClick={() => navigate('/')}>
                         <img className={styles['brand-logo']} src={require('/assets/images/Onplay Logo.svg')} alt="Onplay" />
                     </div>
             }
 
             {
                 typeof title === 'string' && title.length > 0 ?
-                    <h2 className={styles['title']}>{title}</h2>
+                    <h2 className={classnames(styles['title'], { [styles['nav-element-hidden']]: buttonsHidden })}>{title}</h2>
                     :
                     null
             }
             {
                 searchBar && route !== 'addons' ?
-                    <SearchBar className={styles['search-bar']} query={query} active={route === 'search'} />
+                    <SearchBar className={classnames(styles['search-bar'], { [styles['nav-element-hidden']]: buttonsHidden })} query={query} active={route === 'search'} />
                     :
                     null
             }
-            <div className={styles['buttons-container']}>
+            <div className={classnames(styles['buttons-container'], { [styles['nav-element-hidden']]: buttonsHidden })}>
+                {
+                    isViduki && Array.isArray(vidukiApis) && vidukiApis.length > 0 ?
+                        <div
+                            className={classnames(styles['server-switcher-nav'], { [styles['server-switcher-hidden']]: serverSwitcherHidden })}
+                            onMouseEnter={onServerSwitcherMouseEnter}
+                            onMouseMove={onServerSwitcherMouseMove}
+                        >
+                            {
+                                vidukiApis.map((a) => (
+                                    <button
+                                        key={a.id}
+                                        type="button"
+                                        title={a.name}
+                                        className={classnames(styles['server-chip-nav'], { [styles['server-chip-nav-active']]: a.id === currentApi })}
+                                        onClick={() => typeof onSelectServer === 'function' && onSelectServer(a.id)}
+                                    >
+                                        {'S' + a.id}
+                                    </button>
+                                ))
+                            }
+                        </div>
+                        :
+                        null
+                }
                 {
                     hdrInfo && (hdrInfo.gamma === 'pq' || hdrInfo.gamma === 'hlg') ?
                         <div className={styles['hdr-indicator']} title={hdrInfo.gamma === 'pq' ? 'HDR10' : 'HLG'}>
@@ -140,6 +174,19 @@ HorizontalNavBar.propTypes = {
     hdrInfo: PropTypes.shape({
         gamma: PropTypes.string,
     }),
+    s3s4Mode: PropTypes.bool,
+    s3s4ButtonsVisible: PropTypes.bool,
+    isViduki: PropTypes.bool,
+    vidukiApis: PropTypes.arrayOf(PropTypes.shape({
+        id: PropTypes.number.isRequired,
+        name: PropTypes.string.isRequired,
+        desc: PropTypes.string,
+    })),
+    currentApi: PropTypes.number,
+    onSelectServer: PropTypes.func,
+    serverSwitcherHidden: PropTypes.bool,
+    onServerSwitcherMouseEnter: PropTypes.func,
+    onServerSwitcherMouseMove: PropTypes.func,
 };
 
 module.exports = HorizontalNavBar;

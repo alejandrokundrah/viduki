@@ -98,6 +98,9 @@ const Player = () => {
     const [allFailed, setAllFailed] = React.useState(false);
     const [iframeLoaded, setIframeLoaded] = React.useState(false);
     const watchdogRef = React.useRef(null);
+    const [s3s4ButtonsVisible, setS3s4ButtonsVisible] = React.useState(false);
+    const s3s4HoverTimerRef = React.useRef(null);
+    const s3s4Mode = currentApi === 3 || currentApi === 4;
 
     // Cross-origin iframes hide their internal video state, so we can't read
     // whether playback actually started. Instead we use a load-timeout
@@ -163,6 +166,91 @@ const Player = () => {
         return () => clearTimeout(watchdogRef.current);
     }, [isViduki, iframeUrl, allFailed, switchToNextServer]);
 
+    const S3S4_HOVER_DELAY = 600;
+    const S3S4_IDLE_HIDE_DELAY = 5000;
+    const s3s4IdleTimerRef = React.useRef(null);
+
+    const scheduleS3s4Reveal = React.useCallback(() => {
+        if (s3s4HoverTimerRef.current !== null) {
+            clearTimeout(s3s4HoverTimerRef.current);
+            s3s4HoverTimerRef.current = null;
+        }
+        setS3s4ButtonsVisible(true);
+        if (s3s4IdleTimerRef.current !== null) {
+            clearTimeout(s3s4IdleTimerRef.current);
+        }
+        s3s4IdleTimerRef.current = setTimeout(() => {
+            setS3s4ButtonsVisible(false);
+        }, S3S4_IDLE_HIDE_DELAY);
+    }, []);
+
+    const onS3s4MouseActivity = React.useCallback(() => {
+        if (!s3s4Mode) return;
+        if (s3s4IdleTimerRef.current !== null) {
+            clearTimeout(s3s4IdleTimerRef.current);
+            s3s4IdleTimerRef.current = null;
+        }
+        if (!s3s4ButtonsVisible) {
+            if (s3s4HoverTimerRef.current === null) {
+                s3s4HoverTimerRef.current = setTimeout(() => {
+                    scheduleS3s4Reveal();
+                }, S3S4_HOVER_DELAY);
+            }
+        } else {
+            s3s4IdleTimerRef.current = setTimeout(() => {
+                setS3s4ButtonsVisible(false);
+            }, S3S4_IDLE_HIDE_DELAY);
+        }
+    }, [s3s4Mode, s3s4ButtonsVisible, scheduleS3s4Reveal]);
+
+    const onS3s4InstantReveal = React.useCallback(() => {
+        if (!s3s4Mode) return;
+        scheduleS3s4Reveal();
+    }, [s3s4Mode, scheduleS3s4Reveal]);
+
+    React.useEffect(() => {
+        if (!s3s4Mode) {
+            if (s3s4HoverTimerRef.current !== null) {
+                clearTimeout(s3s4HoverTimerRef.current);
+                s3s4HoverTimerRef.current = null;
+            }
+            if (s3s4IdleTimerRef.current !== null) {
+                clearTimeout(s3s4IdleTimerRef.current);
+                s3s4IdleTimerRef.current = null;
+            }
+            setS3s4ButtonsVisible(false);
+            return undefined;
+        }
+
+        const onMouseMove = () => onS3s4MouseActivity();
+        const onMouseDown = () => onS3s4InstantReveal();
+        const onTouchStart = () => onS3s4InstantReveal();
+        const onKeyDown = () => onS3s4InstantReveal();
+        const onWheel = () => onS3s4MouseActivity();
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mousedown', onMouseDown);
+        window.addEventListener('touchstart', onTouchStart);
+        window.addEventListener('keydown', onKeyDown);
+        window.addEventListener('wheel', onWheel);
+
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mousedown', onMouseDown);
+            window.removeEventListener('touchstart', onTouchStart);
+            window.removeEventListener('keydown', onKeyDown);
+            window.removeEventListener('wheel', onWheel);
+            if (s3s4HoverTimerRef.current !== null) {
+                clearTimeout(s3s4HoverTimerRef.current);
+                s3s4HoverTimerRef.current = null;
+            }
+            if (s3s4IdleTimerRef.current !== null) {
+                clearTimeout(s3s4IdleTimerRef.current);
+                s3s4IdleTimerRef.current = null;
+            }
+        };
+    }, [s3s4Mode, onS3s4MouseActivity, onS3s4InstantReveal]);
+
     const [seeking, setSeeking] = React.useState(false);
     const [casting, setCasting] = React.useState(() => {
         return services.chromecast.active && services.chromecast.transport.getCastState() === cast.framework.CastState.CONNECTED;
@@ -175,7 +263,7 @@ const Player = () => {
 
     const [immersed, setImmersed] = React.useState(true);
     const setImmersedDebounced = React.useCallback(debounce(setImmersed, 3000), []);
-    const [fullscreen, , , toggleFullscreen, , setVideoElement] = useFullscreen();
+    const [fullscreen, , , toggleFullscreen, , setVideoElement, uiVisible] = useFullscreen();
 
     React.useEffect(() => {
         const el = video.containerRef.current?.querySelector('video');
@@ -375,6 +463,16 @@ const Player = () => {
     const overlayHidden = React.useMemo(() => {
         return keyboardSeekTime === null && immersed && !casting && video.state.paused !== null && !video.state.paused && !menusOpen;
     }, [keyboardSeekTime, immersed, casting, video.state.paused, menusOpen]);
+
+    const serverSwitcherHidden = React.useMemo(() => {
+        if (fullscreen && !uiVisible) {
+            return true;
+        }
+        if (s3s4Mode && !s3s4ButtonsVisible) {
+            return true;
+        }
+        return false;
+    }, [fullscreen, uiVisible, s3s4Mode, s3s4ButtonsVisible]);
 
     React.useEffect(() => {
         if (!video.state.manifest?.props.includes('subtitlesOffsetMinimum')) {
@@ -1034,6 +1132,8 @@ const Player = () => {
     React.useLayoutEffect(() => {
         return () => {
             clearTimeout(detailsHold.current?.timer);
+            clearTimeout(s3s4HoverTimerRef.current);
+            clearTimeout(s3s4IdleTimerRef.current);
             setImmersedDebounced.cancel();
             onPlayRequestedDebounced.cancel();
             onPauseRequestedDebounced.cancel();
@@ -1096,22 +1196,6 @@ const Player = () => {
                                 :
                                 null
                         }
-                        <div className={styles['server-switcher']}>
-                            <span className={styles['server-switcher-label']}>Server</span>
-                            {
-                                VIDUKI_APIS.map((a) => (
-                                    <button
-                                        key={a.id}
-                                        type="button"
-                                        title={a.name}
-                                        className={classnames(styles['server-chip'], { [styles['server-chip-active']]: a.id === currentApi })}
-                                        onClick={() => selectServer(a.id)}
-                                    >
-                                        {'S' + a.id}
-                                    </button>
-                                ))
-                            }
-                        </div>
                     </React.Fragment>
                 )
             ) : (
@@ -1188,6 +1272,25 @@ const Player = () => {
                 backButton={true}
                 fullscreenButton={true}
                 hdrInfo={video.state.hdrInfo}
+                s3s4Mode={isViduki && s3s4Mode}
+                s3s4ButtonsVisible={s3s4ButtonsVisible}
+                isViduki={isViduki}
+                vidukiApis={VIDUKI_APIS}
+                currentApi={currentApi}
+                onSelectServer={selectServer}
+                serverSwitcherHidden={serverSwitcherHidden}
+                onServerSwitcherMouseEnter={() => {
+                    if (s3s4Mode) scheduleS3s4Reveal();
+                }}
+                onServerSwitcherMouseMove={() => {
+                    if (s3s4Mode) {
+                        if (s3s4IdleTimerRef.current !== null) {
+                            clearTimeout(s3s4IdleTimerRef.current);
+                            s3s4IdleTimerRef.current = null;
+                        }
+                        setS3s4ButtonsVisible(true);
+                    }
+                }}
                 onMouseMove={onBarMouseMove}
                 onMouseOver={onBarMouseMove}
             />
