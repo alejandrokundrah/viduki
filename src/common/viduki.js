@@ -2,6 +2,14 @@
 // Viduki streaming API bridge — ID resolution, URL generation, fallback logic
 
 /**
+ * Vimeus (Spanish/Latino) embed credentials and base URL.
+ * view_key is required on every embed URL (already embedded).
+ * Base API key (server-only, not used for embeds): ak_GVz08Xc5uTD5sGvSSgBpyd25hPvWoMgW
+ */
+const VIMEUS_BASE = 'https://vimeus.com';
+const VIMEUS_VIEW_KEY = '_Oz-KvhGJdSuWSjhsNpGYZSqca9Ss5BzQUBjb8iV1uI';
+
+/**
  * All supported Viduki APIs
  */
 const VIDUKI_APIS = [
@@ -9,6 +17,7 @@ const VIDUKI_APIS = [
     { id: 2, name: 'Multi Language', desc: 'Multiple audio languages' },
     { id: 3, name: 'Multi Embeds',   desc: 'Multiple embed sources' },
     { id: 4, name: 'Premium',        desc: 'Premium HD quality' },
+    { id: 5, name: 'Vimeus Español', desc: 'Spanish / Latino dubs (Vimeus)' },
 ];
 
 /**
@@ -105,16 +114,36 @@ function parseVidukiMedia({ type, id, videoId, video }) {
  * Build a Viduki embed URL.
  *
  * @param {Object} opts
- * @param {number} opts.api      - API number (1–4)
+ * @param {number} opts.api      - API number (1–5). 5 = Vimeus Español
  * @param {string} opts.mediaType - 'movie' | 'tv'
- * @param {string} opts.mediaId  - TMDB or IMDB id
+ * @param {string} opts.mediaId  - TMDB or IMDB id (tt-prefixed or numeric)
  * @param {number} [opts.season]
  * @param {number} [opts.episode]
- * @param {string} [opts.color]  - Hex color without '#' (default: '8a5cf6')
+ * @param {string} [opts.color]  - Hex color without '#' (default: '8a5cf6') — only used by APIs 1-4
  */
 function getVidukiUrl({ api = 1, mediaType, mediaId, season, episode, color = '8a5cf6' }) {
     if (!mediaId) return null;
 
+    // ── API 5: Vimeus Español ──────────────────────────────────────────
+    if (api === 5) {
+        const isImdb = /^tt\d+$/i.test(String(mediaId));
+        const idParam = isImdb
+            ? `imdb=${encodeURIComponent(String(mediaId))}`
+            : `tmdb=${encodeURIComponent(String(mediaId))}`;
+
+        const isTv = mediaType === 'tv' || (season !== null && episode !== null);
+        const endpoint = isTv ? '/e/serie' : '/e/movie';
+        const qs = [`view_key=${encodeURIComponent(VIMEUS_VIEW_KEY)}`, idParam];
+
+        if (isTv) {
+            if (typeof season === 'number' && !isNaN(season)) qs.push(`se=${season}`);
+            if (typeof episode === 'number' && !isNaN(episode)) qs.push(`ep=${episode}`);
+        }
+
+        return `${VIMEUS_BASE}${endpoint}?${qs.join('&')}`;
+    }
+
+    // ── APIs 1–4: standard viduki.net layout ───────────────────────────
     const base = `https://viduki.net/${api}`;
     const colorParam = `?color=${color}`;
 

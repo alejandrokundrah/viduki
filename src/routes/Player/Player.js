@@ -46,10 +46,11 @@ const GAMEPAD_HANDLER_ID = 'player';
 const CAST_DEVICES_REFRESH_INTERVAL = 5000;
 
 const API_LABELS = {
-    1: { short: 'S1', full: 'Multi Server', badge: 'BEST' },
-    2: { short: 'S2', full: 'Multi Lang', badge: 'LANG' },
-    3: { short: 'S3', full: 'Multi Embeds', badge: 'ALT' },
-    4: { short: 'S4', full: 'Premium', badge: 'HD' },
+    1: { short: 'S1', full: 'Multi Server',   badge: 'BEST' },
+    2: { short: 'S2', full: 'Multi Lang',     badge: 'LANG' },
+    3: { short: 'S3', full: 'Multi Embeds',   badge: 'ALT' },
+    4: { short: 'S4', full: 'Premium',        badge: 'HD' },
+    5: { short: 'S5', full: 'Vimeus Español', badge: 'ES' },
 };
 
 const Player = () => {
@@ -89,7 +90,7 @@ const Player = () => {
     const initialApi = React.useMemo(() => {
         if (isViduki) {
             const num = parseInt(stream.replace('viduki_', ''), 10);
-            if (!isNaN(num) && num >= 1 && num <= 4) return num;
+            if (!isNaN(num) && num >= 1 && num <= 5) return num;
         }
         return 1;
     }, [stream, isViduki]);

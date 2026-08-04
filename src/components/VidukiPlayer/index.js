@@ -8,6 +8,7 @@ const OnplayFooter = require('../../routes/Board/OnplayFooter');
 const styles = require('./styles');
 
 const LIVE_TV_SITES = [
+    { name: 'net77.cc', label: 'Live TV Channels Hub', href: 'https://net77.cc/', category: 'TV / Sports', desc: 'Massive live TV portal with 1000+ worldwide channels, movies and series', featured: true },
     { name: 'TVCL', label: 'TV Channel Index', href: 'https://www.tvchannellists.com/', category: 'TV / Sports', desc: 'Global live channel lists and schedules' },
     { name: 'NTV', label: 'TV / Sports / Aggregator', href: 'http://ntv.cx/', category: 'TV / Sports', desc: 'Premium stream aggregator' },
     { name: 'StreamSports99', label: 'TV / Sports', href: 'https://streamsports99.su/live-tv', category: 'TV / Sports', desc: '24/7 Live sports streams & TV' },
@@ -82,6 +83,7 @@ const VidukiPlayer = ({ className }) => {
     const { t } = useTranslation();
     const [activeCategory, setActiveCategory] = React.useState('All');
     const [searchQuery, setSearchQuery] = React.useState('');
+    const [iframeOpen, setIframeOpen] = React.useState(false);
 
     const allSites = React.useMemo(() => {
         return [...LIVE_TV_SITES, ...LIVE_SPORTS_SITES, ...ADULT_4K_SITES];
@@ -104,6 +106,8 @@ const VidukiPlayer = ({ className }) => {
         return allSites.filter((s) => s.category === cat).length;
     };
 
+    const featuredSite = LIVE_TV_SITES[0];
+
     return (
         <div className={styles['viduki-page-wrapper']}>
             <MainNavBars className={styles['viduki-content-container']} route={'live-tv'}>
@@ -120,7 +124,7 @@ const VidukiPlayer = ({ className }) => {
                         </h1>
 
                         <p className={styles['hero-description']}>
-                            Access 50+ live television networks, real-time sports streams, and premium 4K torrent portals.
+                            Access 60+ live television networks, real-time sports streams, and premium 4K torrent portals.
                         </p>
 
                         {/* Search & Filter Bar */}
@@ -166,12 +170,74 @@ const VidukiPlayer = ({ className }) => {
                         </div>
                     </div>
 
+                    {/* Featured: net77.cc Live TV Player */}
+                    <section className={styles['featured-player-section']}>
+                        <div className={styles['featured-header']}>
+                            <div className={styles['featured-title-row']}>
+                                <span className={styles['featured-pill']}>
+                                    <span className={styles['featured-pill-dot']} />
+                                    FEATURED LIVE TV
+                                </span>
+                                <h2 className={styles['featured-title']}>{featuredSite.name}</h2>
+                            </div>
+                            <p className={styles['featured-subtitle']}>
+                                {featuredSite.desc}
+                            </p>
+                        </div>
+
+                        <div className={styles['featured-action-row']}>
+                            <button
+                                className={classnames(styles['featured-btn'], styles['primary'])}
+                                onClick={() => setIframeOpen((v) => !v)}
+                            >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    {iframeOpen ? (
+                                        <path d="M18 6L6 18M6 6l12 12" />
+                                    ) : (
+                                        <polygon points="5 3 19 12 5 21 5 3" />
+                                    )}
+                                </svg>
+                                <span>{iframeOpen ? 'Close In-App Player' : 'Watch net77.cc Inside App'}</span>
+                            </button>
+                            <a
+                                className={classnames(styles['featured-btn'], styles['ghost'])}
+                                href={featuredSite.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                    <polyline points="15 3 21 3 21 9" />
+                                    <line x1="10" y1="14" x2="21" y2="3" />
+                                </svg>
+                                <span>Open in New Tab</span>
+                            </a>
+                        </div>
+
+                        {iframeOpen && (
+                            <div className={styles['iframe-wrap']}>
+                                <iframe
+                                    src={featuredSite.href}
+                                    title={featuredSite.name}
+                                    className={styles['live-tv-iframe']}
+                                    allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                                    allowFullScreen
+                                    referrerPolicy="origin"
+                                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
+                                />
+                                <div className={styles['iframe-hint']}>
+                                    🔒 If the screen appears blank, the site may have blocked in-app embedding. Please use the "Open in New Tab" button above.
+                                </div>
+                            </div>
+                        )}
+                    </section>
+
                     {/* Sites Cards Grid */}
                     <div className={styles['sites-grid']}>
                         {filteredSites.map((site, index) => (
                             <a
                                 key={index}
-                                className={styles['site-card']}
+                                className={classnames(styles['site-card'], site.featured ? styles['featured'] : null)}
                                 href={site.href}
                                 target="_blank"
                                 rel="noopener noreferrer"
