@@ -188,6 +188,23 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
         }
     }, [streamLink]);
 
+    const downloadViaVidVault = React.useCallback((event) => {
+        event.preventDefault();
+        closeMenu();
+        const linkToCopy = streamLink || downloadLink || magnetLink;
+        if (linkToCopy) {
+            navigator.clipboard.writeText(linkToCopy).catch(console.error);
+        }
+        const targetUrl = linkToCopy ? `https://vidvault.ru/?url=${encodeURIComponent(linkToCopy)}` : 'https://vidvault.ru/';
+        toast.show({
+            type: 'success',
+            title: 'VidVault Downloader',
+            message: linkToCopy ? 'Opening VidVault.ru (Link copied to clipboard)' : 'Opening VidVault.ru',
+            timeout: 4000,
+        });
+        platform.openExternal(targetUrl);
+    }, [streamLink, downloadLink, magnetLink, closeMenu, platform, toast]);
+
     const renderThumbnailFallback = React.useCallback(() => (
         <Icon className={styles['placeholder-icon']} name={'ic_broken_link'} />
     ), []);
@@ -259,9 +276,13 @@ const Stream = ({ className, videoId, videoReleased, addonName, name, descriptio
                             <div className={styles['context-menu-option-label']}>{t('CTX_DOWNLOAD_VIDEO')}</div>
                         </Button>
                 }
+                <Button className={styles['context-menu-option-container']} title={'Download via VidVault'} onClick={downloadViaVidVault}>
+                    <Icon className={styles['menu-icon']} name={'download'} />
+                    <div className={styles['context-menu-option-label']}>Download via VidVault</div>
+                </Button>
             </div>
         );
-    }, [copyStreamLink, copyMagnetLink, downloadVideo, onClick, description, t]);
+    }, [copyStreamLink, copyMagnetLink, downloadVideo, downloadViaVidVault, onClick, description, t]);
 
     React.useEffect(() => {
         if (!routeFocused) {

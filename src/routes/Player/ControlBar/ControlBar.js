@@ -9,7 +9,7 @@ const { useServices } = require('stremio/services');
 const SeekBar = require('./SeekBar');
 const VolumeSlider = require('./VolumeSlider');
 const styles = require('./styles');
-const { useBinaryState, usePlatform } = require('stremio/common');
+const { useBinaryState, usePlatform, useToast } = require('stremio/common');
 const { t } = require('i18next');
 
 const ControlBar = React.forwardRef(({
@@ -100,6 +100,22 @@ const ControlBar = React.forwardRef(({
             }
         }
     }, [muted, onMuteRequested, onUnmuteRequested]);
+    const toast = useToast();
+    const onVidVaultDownloadClick = React.useCallback(() => {
+        const linkToCopy = stream?.deepLinks?.externalPlayer?.streaming || stream?.deepLinks?.externalPlayer?.download || stream?.deepLinks?.externalPlayer?.magnet;
+        if (linkToCopy) {
+            navigator.clipboard.writeText(linkToCopy).catch(console.error);
+        }
+        const targetUrl = linkToCopy ? `https://vidvault.ru/?url=${encodeURIComponent(linkToCopy)}` : 'https://vidvault.ru/';
+        toast.show({
+            type: 'success',
+            title: 'VidVault Downloader',
+            message: linkToCopy ? 'Opening VidVault.ru (Link copied to clipboard)' : 'Opening VidVault.ru',
+            timeout: 3000
+        });
+        platform.openExternal(targetUrl);
+    }, [stream, platform, toast]);
+
     const castButtonDisabled = platform.shell.active ? !shellCastSupported : !chromecastServiceActive;
     const onChromecastButtonClick = React.useCallback(() => {
         if (platform.shell.active) {
@@ -197,6 +213,9 @@ const ControlBar = React.forwardRef(({
                     }
                     <Button className={classnames(styles['control-bar-button'], { 'disabled': videoScale === null })} title={videoScaleLabel} tabIndex={-1} onClick={onVideoScaleChanged}>
                         <Icon className={styles['icon']} name={'scale'} />
+                    </Button>
+                    <Button className={styles['control-bar-button']} title="VidVault Downloader (vidvault.ru)" tabIndex={-1} onClick={onVidVaultDownloadClick}>
+                        <Icon className={styles['icon']} name={'download'} />
                     </Button>
                     <Button className={classnames(styles['control-bar-button'], { 'disabled': !stream })} tabIndex={-1} onMouseDown={onOptionsButtonMouseDown} onClick={onToggleOptionsMenu}>
                         <Icon className={styles['icon']} name={'more-horizontal'} />

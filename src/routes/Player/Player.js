@@ -51,6 +51,7 @@ const API_LABELS = {
     3: { short: 'S3', full: 'Multi Embeds',   badge: 'ALT' },
     4: { short: 'S4', full: 'Premium',        badge: 'HD' },
     5: { short: 'S5', full: 'Vimeus Español', badge: 'ES' },
+    6: { short: 'S6', full: 'Screenscape',    badge: 'NEW' },
 };
 
 const Player = () => {
@@ -151,6 +152,57 @@ const Player = () => {
             color: 'fcf007',
         });
     }, [isViduki, currentApi, mediaInfo]);
+
+    const onVidVaultDownload = React.useCallback(() => {
+        // mediaInfo.mediaId is the TMDB numeric ID (or IMDB tt... string)
+        const rawId = mediaInfo?.mediaId || (typeof id === 'string' ? id.replace(/^tmdb:/i, '') : null);
+        const mediaType = mediaInfo?.mediaType || (type === 'series' ? 'tv' : 'movie');
+        const season = mediaInfo?.season;
+        const episode = mediaInfo?.episode;
+        const resolvedTitle = player?.title || player?.metaItem?.name || rawId || '';
+
+        // DEBUG - open browser console to see these values
+        console.log('[VidVault Debug]', {
+            rawUrlId: id,
+            rawUrlType: type,
+            rawUrlVideoId: videoId,
+            mediaInfo,
+            rawId,
+            mediaType,
+            season,
+            episode,
+            resolvedTitle,
+            playerTitle: player?.title,
+            playerMetaItem: player?.metaItem
+        });
+
+        // VidVault uses TMDB numeric IDs in the URL path, not IMDB IDs
+        // Routes: /movie/:tmdbId  or  /tv/:tmdbId/:season/:episode
+        const isTmdbNumeric = rawId && /^\d+$/.test(rawId);
+        let targetUrl;
+
+        if (isTmdbNumeric) {
+            if ((mediaType === 'tv' || mediaType === 'series') && typeof season === 'number' && typeof episode === 'number') {
+                targetUrl = `https://vidvault.ru/tv/${rawId}/${season}/${episode}`;
+            } else {
+                targetUrl = `https://vidvault.ru/movie/${rawId}`;
+            }
+        } else {
+            // IMDB id or unknown - fall back to homepage (user can search by title)
+            targetUrl = 'https://vidvault.ru/';
+        }
+
+        toast.show({
+            type: 'success',
+            title: 'VidVault Downloader',
+            message: isTmdbNumeric
+                ? `Opening VidVault for "${resolvedTitle}"...`
+                : `Opening VidVault – search for "${resolvedTitle}"`,
+            timeout: 4000
+        });
+
+        platform.openExternal(targetUrl);
+    }, [mediaInfo, id, type, videoId, player, toast, platform]);
 
     // (Re)start the load-timeout watchdog whenever the active embed URL
     // changes. If the iframe hasn't reported a successful load in time, we
@@ -1262,6 +1314,7 @@ const Player = () => {
                             playbackDevices={playbackDevices}
                             extraSubtitlesTracks={extraSubtitleTracks}
                             selectedExtraSubtitlesTrackId={selectedExtraSubtitleTrackId}
+                            onVidVaultDownload={onVidVaultDownload}
                         />
                     </ContextMenu>
                 )
@@ -1279,6 +1332,7 @@ const Player = () => {
                 vidukiApis={VIDUKI_APIS}
                 currentApi={currentApi}
                 onSelectServer={selectServer}
+                onVidVaultDownload={onVidVaultDownload}
                 serverSwitcherHidden={serverSwitcherHidden}
                 onServerSwitcherMouseEnter={() => {
                     if (s3s4Mode) scheduleS3s4Reveal();
@@ -1342,6 +1396,7 @@ const Player = () => {
                         onVideoScaleChanged={onVideoScaleChanged}
                         onToggleStatisticsMenu={toggleStatisticsMenu}
                         onToggleSideDrawer={toggleSideDrawer}
+                        onVidVaultDownload={onVidVaultDownload}
                         onMouseMove={onBarMouseMove}
                         onMouseOver={onBarMouseMove}
                         onTouchEnd={onContainerMouseLeave}
@@ -1423,6 +1478,7 @@ const Player = () => {
                     playbackDevices={playbackDevices}
                     extraSubtitlesTracks={extraSubtitleTracks}
                     selectedExtraSubtitlesTrackId={selectedExtraSubtitleTrackId}
+                    onVidVaultDownload={onVidVaultDownload}
                 />
             </Transition>
         </div>

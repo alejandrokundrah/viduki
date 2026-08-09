@@ -2,7 +2,6 @@
 const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
-const { useTranslation } = require('react-i18next');
 const { MainNavBars } = require('stremio/components');
 const OnplayFooter = require('../../routes/Board/OnplayFooter');
 const styles = require('./styles');
@@ -77,16 +76,19 @@ const ADULT_4K_SITES = [
     { name: 'BitSearch XXX 4K', label: '4K Adult Torrent Search', href: 'https://bitsearch.to/search?q=4k+xxx', category: '18+ TPB 4K', desc: 'Fast torrent search engine for 4K XXX' },
 ];
 
-const CATEGORIES = ['All', 'TV / Sports', 'Live Sports', '18+ TPB 4K'];
+const DOWNLOADER_SITES = [
+    { name: 'VidVault Downloader', label: 'Media & Stream Downloader', href: 'https://vidvault.ru/', category: 'Downloaders', desc: 'Download movies, series and video streams directly via VidVault', featured: true },
+];
+
+const CATEGORIES = ['All', 'Downloaders', 'TV / Sports', 'Live Sports', '18+ TPB 4K'];
 
 const VidukiPlayer = ({ className }) => {
-    const { t } = useTranslation();
     const [activeCategory, setActiveCategory] = React.useState('All');
     const [searchQuery, setSearchQuery] = React.useState('');
     const [iframeOpen, setIframeOpen] = React.useState(false);
 
     const allSites = React.useMemo(() => {
-        return [...LIVE_TV_SITES, ...LIVE_SPORTS_SITES, ...ADULT_4K_SITES];
+        return [...DOWNLOADER_SITES, ...LIVE_TV_SITES, ...LIVE_SPORTS_SITES, ...ADULT_4K_SITES];
     }, []);
 
     const filteredSites = React.useMemo(() => {
@@ -109,7 +111,7 @@ const VidukiPlayer = ({ className }) => {
     const featuredSite = LIVE_TV_SITES[0];
 
     return (
-        <div className={styles['viduki-page-wrapper']}>
+        <div className={classnames(styles['viduki-page-wrapper'], className)}>
             <MainNavBars className={styles['viduki-content-container']} route={'live-tv'}>
                 <div className={styles['viduki-scroll-area']}>
                     {/* Onplay Hero Header */}
@@ -226,7 +228,7 @@ const VidukiPlayer = ({ className }) => {
                                     sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
                                 />
                                 <div className={styles['iframe-hint']}>
-                                    🔒 If the screen appears blank, the site may have blocked in-app embedding. Please use the "Open in New Tab" button above.
+                                    🔒 If the screen appears blank, the site may have blocked in-app embedding. Please use the &quot;Open in New Tab&quot; button above.
                                 </div>
                             </div>
                         )}
@@ -256,7 +258,7 @@ const VidukiPlayer = ({ className }) => {
 
                     {filteredSites.length === 0 && (
                         <div className={styles['empty-state']}>
-                            <p>No streams found matching "{searchQuery}". Try a different keyword.</p>
+                            <p>No streams found matching &quot;{searchQuery}&quot;. Try a different keyword.</p>
                         </div>
                     )}
 

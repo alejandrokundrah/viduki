@@ -12,12 +12,15 @@ const VIMEUS_VIEW_KEY = '_Oz-KvhGJdSuWSjhsNpGYZSqca9Ss5BzQUBjb8iV1uI';
 /**
  * All supported Viduki APIs
  */
+const SCREENSCAPE_BASE = 'https://screenscape.me/embed';
+
 const VIDUKI_APIS = [
     { id: 1, name: 'Multi Server',   desc: 'Multiple servers for best compatibility' },
     { id: 2, name: 'Multi Language', desc: 'Multiple audio languages' },
     { id: 3, name: 'Multi Embeds',   desc: 'Multiple embed sources' },
     { id: 4, name: 'Premium',        desc: 'Premium HD quality' },
     { id: 5, name: 'Vimeus Español', desc: 'Spanish / Latino dubs (Vimeus)' },
+    { id: 6, name: 'Screenscape',    desc: 'Screenscape.me — multi-language embed' },
 ];
 
 /**
@@ -114,7 +117,7 @@ function parseVidukiMedia({ type, id, videoId, video }) {
  * Build a Viduki embed URL.
  *
  * @param {Object} opts
- * @param {number} opts.api      - API number (1–5). 5 = Vimeus Español
+ * @param {number} opts.api      - API number (1–6). 5 = Vimeus Español, 6 = Screenscape
  * @param {string} opts.mediaType - 'movie' | 'tv'
  * @param {string} opts.mediaId  - TMDB or IMDB id (tt-prefixed or numeric)
  * @param {number} [opts.season]
@@ -141,6 +144,24 @@ function getVidukiUrl({ api = 1, mediaType, mediaId, season, episode, color = '8
         }
 
         return `${VIMEUS_BASE}${endpoint}?${qs.join('&')}`;
+    }
+
+    // ── API 6: Screenscape ─────────────────────────────────────────────
+    if (api === 6) {
+        const isImdb = /^tt\d+$/i.test(String(mediaId));
+        const idParam = isImdb
+            ? `imdb=${encodeURIComponent(String(mediaId))}`
+            : `tmdb=${encodeURIComponent(String(mediaId))}`;
+
+        const isTv = mediaType === 'tv' || (season !== null && episode !== null);
+        const qs = [idParam, `type=${isTv ? 'tv' : 'movie'}`];
+
+        if (isTv) {
+            if (typeof season === 'number' && !isNaN(season)) qs.push(`s=${season}`);
+            if (typeof episode === 'number' && !isNaN(episode)) qs.push(`e=${episode}`);
+        }
+
+        return `${SCREENSCAPE_BASE}?${qs.join('&')}`;
     }
 
     // ── APIs 1–4: standard viduki.net layout ───────────────────────────

@@ -668,6 +668,27 @@ html:not(.active-slider-within) {
     .pill-badge { display: none; }
     .server-pill { padding: 0.35rem 0.75rem; font-size: 0.75rem; }
     .overlay-bar { padding: 0 0.85rem; }
+
+    .server-switcher {
+        max-width: calc(100vw - 2rem);
+        overflow-x: auto;
+        white-space: nowrap;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        &::-webkit-scrollbar { display: none; }
+    }
+
+    .player-container {
+        .layer {
+            &.menu-layer {
+                right: 1rem;
+                left: 1rem;
+                max-width: calc(100vw - 2rem);
+                bottom: 6.5rem;
+                max-height: 55vh;
+            }
+        }
+    }
 }
 
 @media screen and (max-width: @xsmall) {
@@ -684,8 +705,9 @@ html:not(.active-slider-within) {
     .player-container {
         .layer {
             &.menu-layer {
-                right: 2.5rem;
-                bottom: 11rem;
+                right: 1rem;
+                left: 1rem;
+                bottom: 8rem;
             }
         }
     }

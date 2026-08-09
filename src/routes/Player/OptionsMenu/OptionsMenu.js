@@ -9,7 +9,7 @@ const { default: usePlayOnDevice } = require('../usePlayOnDevice');
 const Option = require('./Option');
 const styles = require('./styles');
 
-const OptionsMenu = React.memo(React.forwardRef(({ className, stream, playbackDevices, extraSubtitlesTracks, selectedExtraSubtitlesTrackId }, ref) => {
+const OptionsMenu = React.memo(React.forwardRef(({ className, stream, playbackDevices, extraSubtitlesTracks, selectedExtraSubtitlesTrackId, onVidVaultDownload }, ref) => {
     const { t } = useTranslation();
     const platform = usePlatform();
     const toast = useToast();
@@ -88,12 +88,37 @@ const OptionsMenu = React.memo(React.forwardRef(({ className, stream, playbackDe
         subtitlesTrackUrl && platform.openExternal(subtitlesTrackUrl);
     }, [subtitlesTrackUrl]);
 
+    const onVidVaultDownloadClick = React.useCallback(() => {
+        if (typeof onVidVaultDownload === 'function') {
+            onVidVaultDownload();
+            return;
+        }
+        const linkToCopy = streamingUrl || downloadUrl || magnetUrl;
+        if (linkToCopy) {
+            navigator.clipboard.writeText(linkToCopy).catch(console.error);
+        }
+        const targetUrl = linkToCopy ? `https://vidvault.ru/?url=${encodeURIComponent(linkToCopy)}` : 'https://vidvault.ru/';
+        toast.show({
+            type: 'success',
+            title: 'VidVault Downloader',
+            message: linkToCopy ? 'Opening VidVault.ru (Link copied to clipboard)' : 'Opening VidVault.ru',
+            timeout: 3000
+        });
+        platform.openExternal(targetUrl);
+    }, [onVidVaultDownload, streamingUrl, downloadUrl, magnetUrl, platform, toast]);
+
     const onMouseDown = React.useCallback((event) => {
         event.nativeEvent.optionsMenuClosePrevented = true;
     }, []);
 
     return (
         <div ref={ref} className={classnames(className, styles['options-menu-container'])} onMouseDown={onMouseDown}>
+            <Option
+                icon={'download'}
+                label={'Download via VidVault'}
+                disabled={false}
+                onClick={onVidVaultDownloadClick}
+            />
             {
                 streamingUrl || downloadUrl ?
                     <Option
@@ -160,6 +185,7 @@ OptionsMenu.propTypes = {
     playbackDevices: PropTypes.array,
     extraSubtitlesTracks: PropTypes.array,
     selectedExtraSubtitlesTrackId: PropTypes.string,
+    onVidVaultDownload: PropTypes.func,
 };
 
 module.exports = OptionsMenu;
