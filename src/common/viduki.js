@@ -15,12 +15,12 @@ const VIMEUS_VIEW_KEY = '_Oz-KvhGJdSuWSjhsNpGYZSqca9Ss5BzQUBjb8iV1uI';
 const SCREENSCAPE_BASE = 'https://screenscape.me/embed';
 
 const VIDUKI_APIS = [
-    { id: 1, name: 'Multi Server',   desc: 'Multiple servers for best compatibility' },
+    { id: 1, name: 'Multi Server', desc: 'Multiple servers for best compatibility' },
     { id: 2, name: 'Multi Language', desc: 'Multiple audio languages' },
-    { id: 3, name: 'Multi Embeds',   desc: 'Multiple embed sources' },
-    { id: 4, name: 'Premium',        desc: 'Premium HD quality' },
+    { id: 3, name: 'Multi Embeds', desc: 'Multiple embed sources' },
+    { id: 4, name: 'Premium', desc: 'Premium HD quality' },
     { id: 5, name: 'Vimeus Español', desc: 'Spanish / Latino dubs (Vimeus)' },
-    { id: 6, name: 'Screenscape',    desc: 'Screenscape.me — multi-language embed' },
+    { id: 6, name: 'Screenscape', desc: 'Screenscape.me — multi-language embed' },
 ];
 
 /**

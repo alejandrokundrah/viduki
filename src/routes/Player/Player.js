@@ -46,12 +46,12 @@ const GAMEPAD_HANDLER_ID = 'player';
 const CAST_DEVICES_REFRESH_INTERVAL = 5000;
 
 const API_LABELS = {
-    1: { short: 'S1', full: 'Multi Server',   badge: 'BEST' },
-    2: { short: 'S2', full: 'Multi Lang',     badge: 'LANG' },
-    3: { short: 'S3', full: 'Multi Embeds',   badge: 'ALT' },
-    4: { short: 'S4', full: 'Premium',        badge: 'HD' },
+    1: { short: 'S1', full: 'Multi Server', badge: 'BEST' },
+    2: { short: 'S2', full: 'Multi Lang', badge: 'LANG' },
+    3: { short: 'S3', full: 'Multi Embeds', badge: 'ALT' },
+    4: { short: 'S4', full: 'Premium', badge: 'HD' },
     5: { short: 'S5', full: 'Vimeus Español', badge: 'ES' },
-    6: { short: 'S6', full: 'Screenscape',    badge: 'NEW' },
+    6: { short: 'S6', full: 'Screenscape', badge: 'NEW' },
 };
 
 const Player = () => {
@@ -160,21 +160,6 @@ const Player = () => {
         const season = mediaInfo?.season;
         const episode = mediaInfo?.episode;
         const resolvedTitle = player?.title || player?.metaItem?.name || rawId || '';
-
-        // DEBUG - open browser console to see these values
-        console.log('[VidVault Debug]', {
-            rawUrlId: id,
-            rawUrlType: type,
-            rawUrlVideoId: videoId,
-            mediaInfo,
-            rawId,
-            mediaType,
-            season,
-            episode,
-            resolvedTitle,
-            playerTitle: player?.title,
-            playerMetaItem: player?.metaItem
-        });
 
         // VidVault uses TMDB numeric IDs in the URL path, not IMDB IDs
         // Routes: /movie/:tmdbId  or  /tv/:tmdbId/:season/:episode
