@@ -52,6 +52,13 @@ const API_LABELS = {
     4: { short: 'S4', full: 'Premium', badge: 'HD' },
     5: { short: 'S5', full: 'Vimeus Español', badge: 'ES' },
     6: { short: 'S6', full: 'Screenscape', badge: 'NEW' },
+    7: { short: 'S7', full: 'VidRock', badge: 'ROCK' },
+    8: { short: 'S8', full: 'VIDEASY', badge: 'EASY' },
+    9: { short: 'S9', full: 'VidAPI', badge: 'API' },
+    10: { short: 'S10', full: 'VidApi QZZ', badge: 'QZZ' },
+    11: { short: 'S11', full: 'VidSrc', badge: 'SRC' },
+    12: { short: 'S12', full: 'VidSrc SBS', badge: 'SBS' },
+    13: { short: 'S13', full: 'CineSrc', badge: 'CINE' },
 };
 
 const Player = () => {
@@ -91,7 +98,7 @@ const Player = () => {
     const initialApi = React.useMemo(() => {
         if (isViduki) {
             const num = parseInt(stream.replace('viduki_', ''), 10);
-            if (!isNaN(num) && num >= 1 && num <= 5) return num;
+            if (!isNaN(num) && num >= 1 && num <= 13) return num;
         }
         return 1;
     }, [stream, isViduki]);
@@ -141,17 +148,51 @@ const Player = () => {
         return null;
     }, [isViduki, type, id, videoId]);
 
+    const [tmdbId, setTmdbId] = React.useState(null);
+
+    React.useEffect(() => {
+        if (!mediaInfo?.mediaId) {
+            setTmdbId(null);
+            return undefined;
+        }
+        if (/^\d+$/.test(mediaInfo.mediaId)) {
+            setTmdbId(mediaInfo.mediaId);
+            return undefined;
+        }
+        if (/^tt\d+$/i.test(mediaInfo.mediaId)) {
+            let cancelled = false;
+            const imdbId = mediaInfo.mediaId;
+            fetch(`https://api.themoviedb.org/3/find/${imdbId}?api_key=c41190049b0e2e1e3433b7b44f9c3fdf&external_source=imdb_id`)
+                .then((res) => res.json())
+                .then((data) => {
+                    if (cancelled) return;
+                    const res = (data.movie_results && data.movie_results[0]) || (data.tv_results && data.tv_results[0]);
+                    if (res && res.id) {
+                        setTmdbId(String(res.id));
+                    }
+                })
+                .catch((err) => {
+                    console.warn('TMDB lookup failed:', err);
+                });
+            return () => {
+                cancelled = true;
+            };
+        }
+        return undefined;
+    }, [mediaInfo]);
+
     const iframeUrl = React.useMemo(() => {
         if (!isViduki || !mediaInfo?.mediaId) return null;
         return getVidukiUrl({
             api: currentApi,
             mediaType: mediaInfo.mediaType,
             mediaId: mediaInfo.mediaId,
+            tmdbId,
             season: mediaInfo.season,
             episode: mediaInfo.episode,
             color: 'fcf007',
         });
-    }, [isViduki, currentApi, mediaInfo]);
+    }, [isViduki, currentApi, mediaInfo, tmdbId]);
 
     const onVidVaultDownload = React.useCallback(() => {
         // mediaInfo.mediaId is the TMDB numeric ID (or IMDB tt... string)
@@ -188,6 +229,16 @@ const Player = () => {
 
         platform.openExternal(targetUrl);
     }, [mediaInfo, id, type, videoId, player, toast, platform]);
+
+    // If the current server cannot produce a URL (e.g. VIDEASY with an IMDB-only ID),
+    // immediately skip to the next server rather than waiting for the watchdog.
+    React.useEffect(() => {
+        if (!isViduki || iframeUrl !== null || allFailed) return;
+        // iframeUrl is null but we have a valid mediaId — this server can't handle this ID type
+        if (mediaInfo?.mediaId) {
+            switchToNextServer();
+        }
+    }, [isViduki, iframeUrl, allFailed, mediaInfo, switchToNextServer]);
 
     // (Re)start the load-timeout watchdog whenever the active embed URL
     // changes. If the iframe hasn't reported a successful load in time, we
@@ -1317,7 +1368,6 @@ const Player = () => {
                 vidukiApis={VIDUKI_APIS}
                 currentApi={currentApi}
                 onSelectServer={selectServer}
-                onVidVaultDownload={onVidVaultDownload}
                 serverSwitcherHidden={serverSwitcherHidden}
                 onServerSwitcherMouseEnter={() => {
                     if (s3s4Mode) scheduleS3s4Reveal();

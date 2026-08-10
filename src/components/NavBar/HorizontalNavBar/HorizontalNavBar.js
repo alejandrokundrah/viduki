@@ -13,10 +13,11 @@ const useToast = require('stremio/common/Toast/useToast');
 const { usePlatform } = require('stremio/common/Platform');
 const SearchBar = require('./SearchBar');
 const NavMenu = require('./NavMenu');
+const BackupApiMenu = require('./BackupApiMenu/BackupApiMenu');
 const styles = require('./styles');
 const { t } = require('i18next');
 
-const HorizontalNavBar = React.memo(({ className, route, query, title, backButton, searchBar, fullscreenButton, navMenu, originPath, hdrInfo, s3s4Mode, s3s4ButtonsVisible, isViduki, vidukiApis, currentApi, onSelectServer, serverSwitcherHidden, onServerSwitcherMouseEnter, onServerSwitcherMouseMove, onVidVaultDownload, ...props }) => {
+const HorizontalNavBar = React.memo(({ className, route, query, title, backButton, searchBar, fullscreenButton, navMenu, originPath, hdrInfo, s3s4Mode, s3s4ButtonsVisible, isViduki, vidukiApis, currentApi, onSelectServer, serverSwitcherHidden, onServerSwitcherMouseEnter, onServerSwitcherMouseMove, ...props }) => {
     const navigate = useNavigate();
     const { chromecast } = useServices();
     const platform = usePlatform();
@@ -115,20 +116,13 @@ const HorizontalNavBar = React.memo(({ className, route, query, title, backButto
                                     </button>
                                 ))
                             }
-                            {
-                                typeof onVidVaultDownload === 'function' ?
-                                    <button
-                                        type="button"
-                                        title="Download media via VidVault"
-                                        className={styles['vidvault-chip-nav']}
-                                        onClick={onVidVaultDownload}
-                                    >
-                                        <Icon className={styles['chip-icon']} name={'download'} />
-                                        <span>VidVault</span>
-                                    </button>
-                                    : null
-                            }
                         </div>
+                        :
+                        null
+                }
+                {
+                    isViduki ?
+                        <BackupApiMenu onSelectServer={onSelectServer} currentApi={currentApi} />
                         :
                         null
                 }
@@ -190,7 +184,6 @@ HorizontalNavBar.propTypes = {
     s3s4Mode: PropTypes.bool,
     s3s4ButtonsVisible: PropTypes.bool,
     isViduki: PropTypes.bool,
-    onVidVaultDownload: PropTypes.func,
     vidukiApis: PropTypes.arrayOf(PropTypes.shape({
         id: PropTypes.number.isRequired,
         name: PropTypes.string.isRequired,

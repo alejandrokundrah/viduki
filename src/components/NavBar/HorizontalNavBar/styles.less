@@ -176,14 +176,10 @@
         visibility: visible;
         transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease;
         margin-right: 0.25rem;
-        max-width: calc(100vw - 6rem);
-        overflow-x: auto;
+        /* overflow must be visible so the backup-dropdown can appear below */
+        overflow: visible;
         white-space: nowrap;
-        scrollbar-width: none;
-        -webkit-overflow-scrolling: touch;
-        &::-webkit-scrollbar {
-            display: none;
-        }
+        position: relative;
 
         &.server-switcher-hidden {
             opacity: 0 !important;

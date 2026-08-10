@@ -23,13 +23,25 @@ const VIDUKI_APIS = [
     { id: 6, name: 'Screenscape', desc: 'Screenscape.me — multi-language embed' },
 ];
 
+/** Backup API servers (S7–S13) — accessed via the Backup Servers dropdown in the nav */
+const VIDUKI_BACKUP_APIS = [
+    { id: 7, name: 'VidRock', desc: 'Quality Video Embedding (VidRock)', domain: 'vidrock.ru', icon: '🎬' },
+    { id: 8, name: 'VIDEASY', desc: 'Fast Player & Anime Embeds (VIDEASY)', domain: 'player.videasy.net', icon: '⚡' },
+    { id: 9, name: 'VidAPI', desc: 'HD Video Player (vaplayer.ru)', domain: 'vaplayer.ru', icon: '🚀' },
+    { id: 10, name: 'VidApi QZZ', desc: 'Multi-Skin Player (vidapi.qzz.io)', domain: 'vidapi.qzz.io', icon: '💎' },
+    { id: 11, name: 'VidSrc', desc: 'Free Embed Player (vidsrcme.ru)', domain: 'vidsrcme.ru', icon: '🌐' },
+    { id: 12, name: 'VidSrc SBS', desc: 'VidSrc SBS Embed Player (vidsrc.sbs)', domain: 'vidsrc.sbs', icon: '🔥' },
+    { id: 13, name: 'CineSrc', desc: 'CineSrc Player (cinesrc.st)', domain: 'cinesrc.st', icon: '🍿' },
+];
+
 /**
  * Determine the next fallback API id, or null if all exhausted.
  */
 function getNextFallbackApi(currentApiId) {
-    const idx = VIDUKI_APIS.findIndex((a) => a.id === currentApiId);
-    if (idx !== -1 && idx < VIDUKI_APIS.length - 1) {
-        return VIDUKI_APIS[idx + 1].id;
+    const allApis = [...VIDUKI_APIS, ...VIDUKI_BACKUP_APIS];
+    const idx = allApis.findIndex((a) => a.id === currentApiId);
+    if (idx !== -1 && idx < allApis.length - 1) {
+        return allApis[idx + 1].id;
     }
     return null;
 }
@@ -117,15 +129,18 @@ function parseVidukiMedia({ type, id, videoId, video }) {
  * Build a Viduki embed URL.
  *
  * @param {Object} opts
- * @param {number} opts.api      - API number (1–6). 5 = Vimeus Español, 6 = Screenscape
+ * @param {number} opts.api      - API number (1–11).
  * @param {string} opts.mediaType - 'movie' | 'tv'
  * @param {string} opts.mediaId  - TMDB or IMDB id (tt-prefixed or numeric)
+ * @param {string} [opts.tmdbId] - Numeric TMDB ID if resolved from IMDB ID
  * @param {number} [opts.season]
  * @param {number} [opts.episode]
- * @param {string} [opts.color]  - Hex color without '#' (default: '8a5cf6') — only used by APIs 1-4
+ * @param {string} [opts.color]  - Hex color without '#'
  */
-function getVidukiUrl({ api = 1, mediaType, mediaId, season, episode, color = '8a5cf6' }) {
+function getVidukiUrl({ api = 1, mediaType, mediaId, tmdbId, season, episode, color = '8a5cf6' }) {
     if (!mediaId) return null;
+    const isTv = mediaType === 'tv' || (season !== null && episode !== null);
+    const targetId = tmdbId || mediaId;
 
     // ── API 5: Vimeus Español ──────────────────────────────────────────
     if (api === 5) {
@@ -134,7 +149,6 @@ function getVidukiUrl({ api = 1, mediaType, mediaId, season, episode, color = '8
             ? `imdb=${encodeURIComponent(String(mediaId))}`
             : `tmdb=${encodeURIComponent(String(mediaId))}`;
 
-        const isTv = mediaType === 'tv' || (season !== null && episode !== null);
         const endpoint = isTv ? '/e/serie' : '/e/movie';
         const qs = [`view_key=${encodeURIComponent(VIMEUS_VIEW_KEY)}`, idParam];
 
@@ -153,7 +167,6 @@ function getVidukiUrl({ api = 1, mediaType, mediaId, season, episode, color = '8
             ? `imdb=${encodeURIComponent(String(mediaId))}`
             : `tmdb=${encodeURIComponent(String(mediaId))}`;
 
-        const isTv = mediaType === 'tv' || (season !== null && episode !== null);
         const qs = [idParam, `type=${isTv ? 'tv' : 'movie'}`];
 
         if (isTv) {
@@ -164,11 +177,71 @@ function getVidukiUrl({ api = 1, mediaType, mediaId, season, episode, color = '8
         return `${SCREENSCAPE_BASE}?${qs.join('&')}`;
     }
 
+    // ── API 7: VidRock ────────────────────────────────────────────────
+    if (api === 7) {
+        if (isTv && season !== null && episode !== null) {
+            return `https://vidrock.ru/tv/${mediaId}/${season}/${episode}`;
+        }
+        return `https://vidrock.ru/movie/${mediaId}`;
+    }
+
+    // ── API 8: VIDEASY ────────────────────────────────────────────────
+    if (api === 8) {
+        const colorParam = `?color=${color}&nextEpisode=true&autoplayNextEpisode=true&episodeSelector=true&overlay=true`;
+        if (isTv && season !== null && episode !== null) {
+            return `https://player.videasy.net/tv/${targetId}/${season}/${episode}${colorParam}`;
+        }
+        return `https://player.videasy.net/movie/${targetId}${colorParam}`;
+    }
+
+    // ── API 9: VidAPI (vaplayer.ru) ───────────────────────────────────
+    if (api === 9) {
+        const colorParam = `?primaryColor=${color}`;
+        if (isTv && season !== null && episode !== null) {
+            return `https://vaplayer.ru/embed/tv/${mediaId}/${season}/${episode}${colorParam}`;
+        }
+        return `https://vaplayer.ru/embed/movie/${mediaId}${colorParam}`;
+    }
+
+    // ── API 10: VidApi QZZ ───────────────────────────────────────────
+    if (api === 10) {
+        const colorParam = `?primaryColor=${color}&player=plus`;
+        if (isTv && season !== null && episode !== null) {
+            return `https://vidapi.qzz.io/tv/${mediaId}/${season}/${episode}${colorParam}`;
+        }
+        return `https://vidapi.qzz.io/movie/${mediaId}${colorParam}`;
+    }
+
+    // ── API 11: VidSrc ────────────────────────────────────────────────
+    if (api === 11) {
+        if (isTv && season !== null && episode !== null) {
+            return `https://vidsrcme.ru/embed/tv/${mediaId}/${season}/${episode}`;
+        }
+        return `https://vidsrcme.ru/embed/movie/${mediaId}`;
+    }
+
+    // ── API 12: VidSrc SBS ────────────────────────────────────────────
+    if (api === 12) {
+        if (isTv && season !== null && episode !== null) {
+            return `https://vidsrc.sbs/embed/tv/${targetId}/${season}/${episode}`;
+        }
+        return `https://vidsrc.sbs/embed/movie/${targetId}`;
+    }
+
+    // ── API 13: CineSrc ───────────────────────────────────────────────
+    if (api === 13) {
+        const colorParam = `?color=%23${color}&autoplay=true&autonext=true&autoskip=true`;
+        if (isTv && season !== null && episode !== null) {
+            return `https://cinesrc.st/embed/tv/${targetId}${colorParam}&s=${season}&e=${episode}`;
+        }
+        return `https://cinesrc.st/embed/movie/${targetId}${colorParam}`;
+    }
+
     // ── APIs 1–4: standard viduki.net layout ───────────────────────────
     const base = `https://viduki.net/${api}`;
     const colorParam = `?color=${color}`;
 
-    if (mediaType === 'tv' && season !== null && episode !== null) {
+    if (isTv && season !== null && episode !== null) {
         return `${base}/tv/${mediaId}/${season}/${episode}${colorParam}`;
     }
     return `${base}/movie/${mediaId}${colorParam}`;
@@ -176,6 +249,7 @@ function getVidukiUrl({ api = 1, mediaType, mediaId, season, episode, color = '8
 
 module.exports = {
     VIDUKI_APIS,
+    VIDUKI_BACKUP_APIS,
     parseVidukiMedia,
     getVidukiUrl,
     getNextFallbackApi,
